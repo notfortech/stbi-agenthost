@@ -3,5 +3,6 @@ namespace StudioTechBI.AgentHostDomain.Enums;
 public enum ProviderType
 {
     OpenAI,
-    Groq
+    Groq,
+    Claude
 }

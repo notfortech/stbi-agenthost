@@ -10,6 +10,7 @@ public sealed class AIProviderOptions
     public IReadOnlyList<ProviderType> FallbackOrder { get; init; } = [ProviderType.Groq, ProviderType.OpenAI];
     public OpenAIOptions OpenAI { get; init; } = new();
     public GroqOptions Groq { get; init; } = new();
+    public ClaudeOptions Claude { get; init; } = new();
 }
 
 public sealed class OpenAIOptions
@@ -34,4 +35,17 @@ public sealed class GroqOptions
     public double Temperature { get; init; } = 0.2;
     public int MaxTokens { get; init; } = 4096;
     public int TimeoutSeconds { get; init; } = 30;
+}
+
+public sealed class ClaudeOptions
+{
+    public bool Enabled { get; init; } = true;
+    public string BaseUrl { get; init; } = "https://api.anthropic.com";
+    public string ApiKey { get; init; } = string.Empty;
+    public string DefaultModel { get; init; } = "claude-sonnet-4-6";
+    public string AnthropicVersion { get; init; } = "2023-06-01";
+    public IReadOnlyList<string> Models { get; init; } = ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"];
+    public double Temperature { get; init; } = 0.2;
+    public int MaxTokens { get; init; } = 4096;
+    public int TimeoutSeconds { get; init; } = 90;
 }

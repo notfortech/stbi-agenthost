@@ -2,18 +2,20 @@ using FluentValidation;
 using Microsoft.Extensions.Http.Resilience;
 using StudioTechBI.AgentHostAI.Mapping;
 using StudioTechBI.AgentHostAI.Options;
-using StudioTechBI.AgentHostApplication.Models;
 using StudioTechBI.AgentHostAI.Parsing;
 using StudioTechBI.AgentHostAI.Prompting;
+using StudioTechBI.AgentHostAI.Providers.Claude;
 using StudioTechBI.AgentHostAI.Providers.Groq;
 using StudioTechBI.AgentHostAI.Providers.OpenAI;
 using StudioTechBI.AgentHostAI.Routing;
 using StudioTechBI.AgentHostApplication.Abstractions;
+using StudioTechBI.AgentHostApplication.Models;
 using StudioTechBI.AgentHostApplication.Models.Requests;
 using StudioTechBI.AgentHostApplication.Services;
 using StudioTechBI.AgentHostApplication.Validation;
 using StudioTechBI.AgentHostDomain.Enums;
 using StudioTechBI.AgentHostInfrastructure.Health;
+using StudioTechBI.AgentHostInfrastructure.Persistence;
 using StudioTechBI.AgentHostInfrastructure.Prompting;
 
 namespace StudioTechBI.AgentHostAPI.Extensions;
@@ -22,26 +24,42 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddAgentHostServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Options
+        // ── Strongly typed options ────────────────────────────────────────────
+        services.Configure<AgentOptions>(configuration.GetSection(AgentOptions.SectionName));
         services.Configure<AIProviderOptions>(configuration.GetSection(AIProviderOptions.SectionName));
-        services.Configure<StudioTechBI.AgentHostApplication.Models.PromptOptions>(configuration.GetSection(StudioTechBI.AgentHostApplication.Models.PromptOptions.SectionName));
+        services.Configure<PromptOptions>(configuration.GetSection(PromptOptions.SectionName));
 
-        // Caching
+        // ── Caching (prompt templates) ────────────────────────────────────────
         services.AddMemoryCache();
 
-        // FluentValidation
+        // ── FluentValidation ──────────────────────────────────────────────────
         services.AddValidatorsFromAssemblyContaining<BlueprintRequestValidator>();
         services.AddScoped<IBlueprintRequestValidator, BlueprintRequestValidatorAdapter>();
 
-        // Application
+        // ── Application use-case services ─────────────────────────────────────
         services.AddScoped<IBlueprintGenerationService, BlueprintGenerationService>();
 
-        // Infrastructure
+        // ── Infrastructure ────────────────────────────────────────────────────
         services.AddScoped<IPromptResourceProvider, FilePromptResourceProvider>();
+        services.AddScoped<IBlueprintPersistenceService, BlueprintPersistenceService>();
 
-        // AI — providers (keyed)
-        var providerOptions = configuration.GetSection(AIProviderOptions.SectionName).Get<AIProviderOptions>() ?? new();
+        // ── AI providers — keyed by ProviderType ──────────────────────────────
+        var providerOptions = configuration
+            .GetSection(AIProviderOptions.SectionName)
+            .Get<AIProviderOptions>() ?? new();
 
+        // Claude (Anthropic)
+        services.AddKeyedScoped<IBlueprintProvider, ClaudeBlueprintProvider>(ProviderType.Claude);
+        services.AddHttpClient<ClaudeBlueprintProvider>(client =>
+        {
+            client.BaseAddress = new Uri(providerOptions.Claude.BaseUrl);
+            // Never log the key — set it on the client only.
+            client.DefaultRequestHeaders.Add("x-api-key", providerOptions.Claude.ApiKey);
+            client.DefaultRequestHeaders.Add("anthropic-version", providerOptions.Claude.AnthropicVersion);
+            client.Timeout = TimeSpan.FromSeconds(providerOptions.Claude.TimeoutSeconds);
+        }).AddStandardResilienceHandler();
+
+        // OpenAI
         services.AddKeyedScoped<IBlueprintProvider, OpenAIBlueprintProvider>(ProviderType.OpenAI);
         services.AddHttpClient<OpenAIBlueprintProvider>(client =>
         {
@@ -50,6 +68,7 @@ public static class ServiceCollectionExtensions
             client.Timeout = TimeSpan.FromSeconds(providerOptions.OpenAI.TimeoutSeconds);
         }).AddStandardResilienceHandler();
 
+        // Groq (OpenAI-compatible)
         services.AddKeyedScoped<IBlueprintProvider, GroqBlueprintProvider>(ProviderType.Groq);
         services.AddHttpClient<GroqBlueprintProvider>(client =>
         {
@@ -58,7 +77,7 @@ public static class ServiceCollectionExtensions
             client.Timeout = TimeSpan.FromSeconds(providerOptions.Groq.TimeoutSeconds);
         }).AddStandardResilienceHandler();
 
-        // AI — routing + parsing + mapping
+        // ── AI pipeline: routing, prompting, parsing, mapping ─────────────────
         services.AddScoped<IBlueprintProviderFactory, BlueprintProviderFactory>();
         services.AddScoped<IProviderRouter, ProviderRouter>();
         services.AddScoped<IPromptBuilder, PromptBuilder>();
@@ -66,7 +85,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBlueprintResponseParser, BlueprintResponseParser>();
         services.AddScoped<IBlueprintMapper, BlueprintMapper>();
 
-        // Health checks
+        // ── Health checks ─────────────────────────────────────────────────────
         services.AddHealthChecks()
             .AddCheck<ProviderHealthCheck>("providers");
 
