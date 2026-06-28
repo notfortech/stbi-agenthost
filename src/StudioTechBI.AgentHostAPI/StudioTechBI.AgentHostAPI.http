@@ -1,0 +1,6 @@
+@StudioTechBI.AgentHostAPI_HostAddress = http://localhost:5281
+
+GET {{StudioTechBI.AgentHostAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

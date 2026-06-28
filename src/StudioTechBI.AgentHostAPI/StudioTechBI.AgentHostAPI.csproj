@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\StudioTechBI.AgentHostDomain\StudioTechBI.AgentHostDomain.csproj" />
+    <ProjectReference Include="..\StudioTechBI.AgentHostApplication\StudioTechBI.AgentHostApplication.csproj" />
+    <ProjectReference Include="..\StudioTechBI.AgentHostInfrastructure\StudioTechBI.AgentHostInfrastructure.csproj" />
+    <ProjectReference Include="..\StudioTechBI.AgentHostAI\StudioTechBI.AgentHostAI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.HealthChecks" Version="2.2.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

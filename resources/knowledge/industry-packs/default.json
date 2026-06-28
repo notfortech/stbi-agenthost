@@ -1,0 +1,5 @@
+{
+  "commonMetrics": ["Revenue", "Cost", "Margin", "Growth Rate", "Customer Count"],
+  "commonDimensions": ["Date", "Region", "Product", "Customer Segment"],
+  "recommendedVisuals": ["KPI Card", "Bar Chart", "Line Chart", "Table", "Pie Chart"]
+}
