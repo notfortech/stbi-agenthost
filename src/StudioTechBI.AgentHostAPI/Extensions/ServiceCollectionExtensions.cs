@@ -9,11 +9,14 @@ using StudioTechBI.AgentHostAI.Providers.Groq;
 using StudioTechBI.AgentHostAI.Providers.OpenAI;
 using StudioTechBI.AgentHostAI.Routing;
 using StudioTechBI.AgentHostApplication.Abstractions;
+using StudioTechBI.AgentHostApplication.Abstractions.Subscription;
 using StudioTechBI.AgentHostApplication.Models;
 using StudioTechBI.AgentHostApplication.Models.Requests;
 using StudioTechBI.AgentHostApplication.Services;
 using StudioTechBI.AgentHostApplication.Validation;
+using StudioTechBI.AgentHostAPI.Filters;
 using StudioTechBI.AgentHostDomain.Enums;
+using StudioTechBI.AgentHostInfrastructure.Extensions;
 using StudioTechBI.AgentHostInfrastructure.Health;
 using StudioTechBI.AgentHostInfrastructure.Persistence;
 using StudioTechBI.AgentHostInfrastructure.Prompting;
@@ -28,6 +31,15 @@ public static class ServiceCollectionExtensions
         services.Configure<AgentOptions>(configuration.GetSection(AgentOptions.SectionName));
         services.Configure<AIProviderOptions>(configuration.GetSection(AIProviderOptions.SectionName));
         services.Configure<PromptOptions>(configuration.GetSection(PromptOptions.SectionName));
+        services.Configure<SubscriptionDefaults>(configuration.GetSection(SubscriptionDefaults.SectionName));
+        services.Configure<AgentLimits>(configuration.GetSection(AgentLimits.SectionName));
+        services.Configure<AdminSettings>(configuration.GetSection(AdminSettings.SectionName));
+
+        // ── Database, repositories, credit engine (Infrastructure layer) ─────
+        services.AddInfrastructurePersistence(configuration);
+
+        // ── Admin filter (registered as service for ServiceFilter attribute) ──
+        services.AddScoped<AdminAuthFilter>();
 
         // ── Caching (prompt templates) ────────────────────────────────────────
         services.AddMemoryCache();

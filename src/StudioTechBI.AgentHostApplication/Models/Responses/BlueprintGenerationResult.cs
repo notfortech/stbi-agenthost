@@ -40,4 +40,21 @@ public sealed class BlueprintGenerationResult
 
     /// <summary>Optional path to the saved blueprint file (only when SaveBlueprints=true).</summary>
     public string? SavedFilePath { get; init; }
+
+    // ── Subscription / credit fields ───────────────────────────────────────────
+
+    /// <summary>Credits remaining in the tenant's current cycle after this request.</summary>
+    /// <example>499</example>
+    public int? CreditsRemaining { get; init; }
+
+    /// <summary>Credits consumed by this request.</summary>
+    /// <example>1</example>
+    public int? CreditsConsumed { get; init; }
+
+    /// <summary>UTC date-time when the credit cycle resets. Null for unlimited or never-reset plans.</summary>
+    public DateTimeOffset? ResetDate { get; init; }
+
+    /// <summary>Subscription plan name for the tenant that made this request.</summary>
+    /// <example>Professional</example>
+    public string? SubscriptionPlan { get; init; }
 }

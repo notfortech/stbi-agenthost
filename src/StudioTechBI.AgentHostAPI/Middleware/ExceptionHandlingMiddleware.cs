@@ -52,6 +52,14 @@ public sealed class ExceptionHandlingMiddleware
                 (StatusCodes.Status400BadRequest, "Validation Failed",
                  string.Join(" | ", ve.Errors.Select(e => e.ErrorMessage))),
 
+            InsufficientCreditsException ice =>
+                (StatusCodes.Status402PaymentRequired, "Insufficient Credits",
+                 ice.Message),
+
+            SubscriptionNotFoundException snfe =>
+                (StatusCodes.Status404NotFound, "Subscription Not Found",
+                 snfe.Message),
+
             ProviderUnavailableException pue =>
                 (StatusCodes.Status424FailedDependency, "Provider Unavailable",
                  pue.Message),

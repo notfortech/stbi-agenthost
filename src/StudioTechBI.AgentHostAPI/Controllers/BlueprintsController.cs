@@ -2,9 +2,12 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using StudioTechBI.AgentHostApplication.Abstractions;
+using StudioTechBI.AgentHostApplication.Abstractions.Subscription;
 using StudioTechBI.AgentHostApplication.Models;
 using StudioTechBI.AgentHostApplication.Models.Requests;
 using StudioTechBI.AgentHostApplication.Models.Responses;
+using StudioTechBI.AgentHostAPI.Middleware;
+using StudioTechBI.AgentHostDomain.Entities;
 using StudioTechBI.AgentHostDomain.Enums;
 
 namespace StudioTechBI.AgentHostAPI.Controllers;
@@ -17,17 +20,20 @@ public sealed class BlueprintsController : ControllerBase
 {
     private readonly IBlueprintGenerationService _service;
     private readonly IBlueprintPersistenceService _persistence;
+    private readonly ICreditEngine _creditEngine;
     private readonly AgentOptions _agentOptions;
     private readonly ILogger<BlueprintsController> _logger;
 
     public BlueprintsController(
         IBlueprintGenerationService service,
         IBlueprintPersistenceService persistence,
+        ICreditEngine creditEngine,
         IOptions<AgentOptions> agentOptions,
         ILogger<BlueprintsController> logger)
     {
         _service = service;
         _persistence = persistence;
+        _creditEngine = creditEngine;
         _agentOptions = agentOptions.Value;
         _logger = logger;
     }
@@ -53,12 +59,14 @@ public sealed class BlueprintsController : ControllerBase
     /// <returns>Wrapped blueprint generation result including the Analytics Deployment Contract.</returns>
     /// <response code="200">Blueprint generated successfully.</response>
     /// <response code="400">Request validation failed.</response>
+    /// <response code="402">Tenant has insufficient credits to process this request.</response>
     /// <response code="408">Request timed out waiting for provider.</response>
     /// <response code="424">AI provider unavailable after all fallbacks exhausted.</response>
     /// <response code="502">Provider returned a response that could not be parsed as a blueprint.</response>
     [HttpPost("generate")]
     [ProducesResponseType(typeof(BlueprintGenerationResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status402PaymentRequired)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status408RequestTimeout)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status424FailedDependency)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status502BadGateway)]
@@ -115,6 +123,28 @@ public sealed class BlueprintsController : ControllerBase
             }
         }
 
+        // Deduct credits for the successful generation — subscription was pre-loaded by middleware.
+        CreditDeductionResult? creditResult = null;
+        if (HttpContext.Items[CreditValidationMiddleware.SubscriptionItemKey] is TenantSubscription subscription)
+        {
+            try
+            {
+                creditResult = await _creditEngine.DeductAsync(
+                    subscription,
+                    requestId,
+                    Guid.NewGuid(),
+                    response.Diagnostics.Tokens.TotalTokens,
+                    sw.ElapsedMilliseconds,
+                    response.Provider,
+                    response.Model,
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Credit deduction failed for RequestId={RequestId} — continuing without deduction", requestId);
+            }
+        }
+
         var result = new BlueprintGenerationResult
         {
             RequestId = requestId,
@@ -130,7 +160,11 @@ public sealed class BlueprintsController : ControllerBase
             Confidence = (int)(response.Confidence * 100),
             Blueprint = response.Blueprint,
             Warnings = response.Warnings,
-            SavedFilePath = savedFilePath
+            SavedFilePath = savedFilePath,
+            CreditsRemaining = creditResult?.IsUnlimited == true ? null : creditResult?.CreditsRemaining,
+            CreditsConsumed = creditResult?.CreditsConsumed,
+            ResetDate = creditResult?.ResetDate,
+            SubscriptionPlan = creditResult?.PlanName
         };
 
         return Ok(result);

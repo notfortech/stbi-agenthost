@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Serilog;
 using StudioTechBI.AgentHostAPI.Extensions;
 using StudioTechBI.AgentHostAPI.Middleware;
+using StudioTechBI.AgentHostInfrastructure.Data;
 
 // Bootstrap logger — used until full Serilog is configured from appsettings.
 Log.Logger = new LoggerConfiguration()
@@ -54,6 +55,13 @@ try
 
     var app = builder.Build();
 
+    // ── Seed database on startup ──────────────────────────────────────────────
+    using (var scope = app.Services.CreateScope())
+    {
+        var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+        await seeder.SeedAsync();
+    }
+
     // ── Pipeline order matters ────────────────────────────────────────────────
 
     // 1. Forwarded headers first so subsequent middleware sees the real scheme/IP.
@@ -65,7 +73,10 @@ try
     // 3. Correlation ID — stamps every request/response with X-Correlation-Id.
     app.UseMiddleware<CorrelationIdMiddleware>();
 
-    // 4. Swagger — enabled in Development always; in Production via Swagger:Enabled flag.
+    // 4. Credit validation — intercepts POST /api/blueprints/generate before routing.
+    app.UseMiddleware<CreditValidationMiddleware>();
+
+    // 5. Swagger — enabled in Development always; in Production via Swagger:Enabled flag.
     app.UseAgentHostSwagger(builder.Configuration);
 
     // 5. Structured request logging (after correlation ID is attached).
