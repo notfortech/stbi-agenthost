@@ -20,6 +20,7 @@ using StudioTechBI.AgentHostInfrastructure.Extensions;
 using StudioTechBI.AgentHostInfrastructure.Health;
 using StudioTechBI.AgentHostInfrastructure.Persistence;
 using StudioTechBI.AgentHostInfrastructure.Prompting;
+using IBlueprintPdfService = StudioTechBI.AgentHostApplication.Abstractions.IBlueprintPdfService;
 
 namespace StudioTechBI.AgentHostAPI.Extensions;
 
@@ -54,6 +55,7 @@ public static class ServiceCollectionExtensions
         // ── Infrastructure ────────────────────────────────────────────────────
         services.AddScoped<IPromptResourceProvider, FilePromptResourceProvider>();
         services.AddScoped<IBlueprintPersistenceService, BlueprintPersistenceService>();
+        services.AddScoped<IBlueprintPdfService, BlueprintPdfService>();
 
         // ── AI providers — keyed by ProviderType ──────────────────────────────
         var providerOptions = configuration
