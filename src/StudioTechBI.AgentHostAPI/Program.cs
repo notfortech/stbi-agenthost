@@ -73,7 +73,10 @@ try
     // 3. Correlation ID — stamps every request/response with X-Correlation-Id.
     app.UseMiddleware<CorrelationIdMiddleware>();
 
-    // 4. Credit validation — intercepts POST /api/blueprints/generate before routing.
+    // 4. Bearer API key validation — Koru sends Authorization: Bearer <ApiKey>.
+    app.UseMiddleware<ApiKeyAuthMiddleware>();
+
+    // 5. Credit validation — intercepts POST /api/blueprints/generate before routing.
     app.UseMiddleware<CreditValidationMiddleware>();
 
     // 5. Swagger — enabled in Development always; in Production via Swagger:Enabled flag.
