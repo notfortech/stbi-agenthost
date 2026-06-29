@@ -20,6 +20,7 @@ public sealed class BlueprintsController : ControllerBase
 {
     private readonly IBlueprintGenerationService _service;
     private readonly IBlueprintPersistenceService _persistence;
+    private readonly IBlueprintPdfService _pdfService;
     private readonly ICreditEngine _creditEngine;
     private readonly AgentOptions _agentOptions;
     private readonly ILogger<BlueprintsController> _logger;
@@ -27,12 +28,14 @@ public sealed class BlueprintsController : ControllerBase
     public BlueprintsController(
         IBlueprintGenerationService service,
         IBlueprintPersistenceService persistence,
+        IBlueprintPdfService pdfService,
         ICreditEngine creditEngine,
         IOptions<AgentOptions> agentOptions,
         ILogger<BlueprintsController> logger)
     {
         _service = service;
         _persistence = persistence;
+        _pdfService = pdfService;
         _creditEngine = creditEngine;
         _agentOptions = agentOptions.Value;
         _logger = logger;
@@ -110,6 +113,7 @@ public sealed class BlueprintsController : ControllerBase
             response.Diagnostics.Tokens.TotalTokens);
 
         string? savedFilePath = null;
+        string? pdfDownloadUrl = null;
         if (_agentOptions.SaveBlueprints)
         {
             try
@@ -118,8 +122,17 @@ public sealed class BlueprintsController : ControllerBase
             }
             catch (Exception ex)
             {
-                // Non-fatal — log and continue; don't fail the response over a disk write.
-                _logger.LogWarning(ex, "Failed to save blueprint for RequestId={RequestId}", requestId);
+                _logger.LogWarning(ex, "Failed to save blueprint JSON for RequestId={RequestId}", requestId);
+            }
+
+            try
+            {
+                await _pdfService.SaveAsync(requestId, response.Blueprint, ct);
+                pdfDownloadUrl = $"{Request.Scheme}://{Request.Host}/api/blueprints/{requestId}/pdf";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to save blueprint PDF for RequestId={RequestId}", requestId);
             }
         }
 
@@ -161,6 +174,7 @@ public sealed class BlueprintsController : ControllerBase
             Blueprint = response.Blueprint,
             Warnings = response.Warnings,
             SavedFilePath = savedFilePath,
+            PdfDownloadUrl = pdfDownloadUrl,
             CreditsRemaining = creditResult?.IsUnlimited == true ? null : creditResult?.CreditsRemaining,
             CreditsConsumed = creditResult?.CreditsConsumed,
             ResetDate = creditResult?.ResetDate,
@@ -183,6 +197,37 @@ public sealed class BlueprintsController : ControllerBase
     {
         var report = await _service.ValidateAsync(request, ct);
         return Ok(report);
+    }
+
+    /// <summary>
+    /// Download the PDF report for a previously generated blueprint.
+    /// </summary>
+    /// <param name="requestId">The request ID returned by the generate endpoint.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>PDF file download.</returns>
+    /// <response code="200">PDF file stream.</response>
+    /// <response code="404">PDF not found — blueprint may not have been saved or PDF generation failed.</response>
+    [HttpGet("{requestId:guid}/pdf")]
+    [Produces("application/pdf")]
+    [ProducesResponseType(typeof(FileResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public IActionResult DownloadPdf(Guid requestId, CancellationToken ct)
+    {
+        var filePath = _pdfService.GetFilePath(requestId);
+
+        // GetFilePath uses today's date prefix — scan the folder for any file matching the requestId
+        var folder = Path.GetDirectoryName(filePath)!;
+        if (Directory.Exists(folder))
+        {
+            var match = Directory.EnumerateFiles(folder, $"*_{requestId:N}.pdf").FirstOrDefault();
+            if (match is not null)
+                return PhysicalFile(match, "application/pdf", $"blueprint-{requestId}.pdf", enableRangeProcessing: true);
+        }
+
+        return Problem(
+            title: "PDF Not Found",
+            detail: $"No PDF found for request {requestId}. Either SaveBlueprints is disabled or PDF generation failed.",
+            statusCode: StatusCodes.Status404NotFound);
     }
 
     // ── private helpers ──────────────────────────────────────────────────────

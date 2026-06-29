@@ -41,6 +41,13 @@ public sealed class BlueprintGenerationResult
     /// <summary>Optional path to the saved blueprint file (only when SaveBlueprints=true).</summary>
     public string? SavedFilePath { get; init; }
 
+    /// <summary>
+    /// URL to asynchronously download a formatted PDF of this blueprint.
+    /// Available immediately after generation when SaveBlueprints=true.
+    /// </summary>
+    /// <example>https://api.example.com/api/blueprints/b6c1d9f5-7d12-4a1d-a3b7-4c6e2c1f8abc/pdf</example>
+    public string? PdfDownloadUrl { get; init; }
+
     // ── Subscription / credit fields ───────────────────────────────────────────
 
     /// <summary>Credits remaining in the tenant's current cycle after this request.</summary>
