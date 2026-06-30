@@ -31,10 +31,16 @@ try
                 System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
         });
 
-    // ── CORS (open for now — restrict per environment when integrating Koru) ──
+    // ── CORS — locked to Koru's frontend origin; dev origins in appsettings.Development.json ──
+    var allowedOrigins = builder.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>() ?? [];
+
     builder.Services.AddCors(options =>
         options.AddDefaultPolicy(policy =>
-            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()));
 
     // ── Application services ──────────────────────────────────────────────────
     builder.Services.AddAgentHostServices(builder.Configuration);
