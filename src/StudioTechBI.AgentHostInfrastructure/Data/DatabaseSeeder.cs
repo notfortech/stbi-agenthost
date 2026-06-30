@@ -15,7 +15,10 @@ public sealed class DatabaseSeeder(
 {
     public async Task SeedAsync(CancellationToken ct = default)
     {
-        await db.Database.EnsureCreatedAsync(ct);
+        if (db.Database.IsRelational())
+            await db.Database.MigrateAsync(ct);
+        else
+            await db.Database.EnsureCreatedAsync(ct);
 
         var limits = agentLimits.Value;
         var defaults = subscriptionDefaults.Value;
