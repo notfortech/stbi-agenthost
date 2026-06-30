@@ -35,6 +35,7 @@ public static class ServiceCollectionExtensions
         services.Configure<SubscriptionDefaults>(configuration.GetSection(SubscriptionDefaults.SectionName));
         services.Configure<AgentLimits>(configuration.GetSection(AgentLimits.SectionName));
         services.Configure<AdminSettings>(configuration.GetSection(AdminSettings.SectionName));
+        services.Configure<AuthOptions>(configuration.GetSection(AuthOptions.SectionName));
 
         // ── Database, repositories, credit engine (Infrastructure layer) ─────
         services.AddInfrastructurePersistence(configuration);
