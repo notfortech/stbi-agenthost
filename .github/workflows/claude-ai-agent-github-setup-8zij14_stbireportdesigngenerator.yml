@@ -6,7 +6,7 @@ name: Build and deploy ASP.Net Core app to Azure Web App - stbireportdesigngener
 on:
   push:
     branches:
-      - claude/ai-agent-github-setup-8zij14
+      - main
   workflow_dispatch:
 
 jobs:
