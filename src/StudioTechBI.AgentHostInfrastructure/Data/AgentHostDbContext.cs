@@ -16,6 +16,7 @@ public sealed class AgentHostDbContext(DbContextOptions<AgentHostDbContext> opti
     {
         modelBuilder.Entity<Plan>(e =>
         {
+            e.ToTable("Plans", "agenthost");
             e.HasKey(p => p.Id);
             e.HasIndex(p => p.Name).IsUnique();
             e.Property(p => p.Name).HasMaxLength(100).IsRequired();
@@ -25,6 +26,7 @@ public sealed class AgentHostDbContext(DbContextOptions<AgentHostDbContext> opti
 
         modelBuilder.Entity<TenantSubscription>(e =>
         {
+            e.ToTable("TenantSubscriptions", "agenthost");
             e.HasKey(s => s.Id);
             e.HasIndex(s => s.TenantId).IsUnique();
             e.Property(s => s.TenantId).HasMaxLength(200).IsRequired();
@@ -37,6 +39,7 @@ public sealed class AgentHostDbContext(DbContextOptions<AgentHostDbContext> opti
 
         modelBuilder.Entity<UsageRecord>(e =>
         {
+            e.ToTable("UsageRecords", "agenthost");
             e.HasKey(u => u.Id);
             e.HasIndex(u => u.TenantId);
             e.HasIndex(u => u.Timestamp);
@@ -52,6 +55,7 @@ public sealed class AgentHostDbContext(DbContextOptions<AgentHostDbContext> opti
 
         modelBuilder.Entity<CreditTransaction>(e =>
         {
+            e.ToTable("CreditTransactions", "agenthost");
             e.HasKey(t => t.Id);
             e.HasIndex(t => t.TenantId);
             e.Property(t => t.TenantId).HasMaxLength(200).IsRequired();
@@ -66,6 +70,7 @@ public sealed class AgentHostDbContext(DbContextOptions<AgentHostDbContext> opti
 
         modelBuilder.Entity<SubscriptionHistory>(e =>
         {
+            e.ToTable("SubscriptionHistories", "agenthost");
             e.HasKey(h => h.Id);
             e.HasIndex(h => h.TenantId);
             e.Property(h => h.TenantId).HasMaxLength(200).IsRequired();
