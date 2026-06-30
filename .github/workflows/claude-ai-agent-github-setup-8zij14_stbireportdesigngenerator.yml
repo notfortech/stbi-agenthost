@@ -39,7 +39,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     permissions:
-      id-token: write
       contents: read
 
     steps:
@@ -49,13 +48,6 @@ jobs:
           name: .net-app
           path: ./publish
 
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_5D00D2659FDE4521B44C3361B7860CF9 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_2C32397C00174B1B96DB479ADCE86D4E }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_0E80C7A18380410BAFA6D3402EC9B56F }}
-
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
@@ -63,3 +55,4 @@ jobs:
           app-name: 'stbireportdesigngenerator'
           slot-name: 'Production'
           package: ./publish
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_2385704165E2450B94B6EB59E39C5F17 }}
