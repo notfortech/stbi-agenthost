@@ -21,11 +21,11 @@ public sealed class OpenAIBlueprintProvider : IBlueprintProvider
     public ProviderType Type => ProviderType.OpenAI;
 
     public OpenAIBlueprintProvider(
-        HttpClient http,
+        IHttpClientFactory httpClientFactory,
         IOptions<AIProviderOptions> options,
         ILogger<OpenAIBlueprintProvider> logger)
     {
-        _http = http;
+        _http = httpClientFactory.CreateClient("OpenAI");
         _options = options.Value.OpenAI;
         _logger = logger;
     }
