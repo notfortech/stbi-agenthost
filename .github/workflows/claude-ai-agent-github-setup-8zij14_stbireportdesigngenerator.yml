@@ -23,17 +23,11 @@ jobs:
         with:
           dotnet-version: '8.x'
 
-      - name: Restore dependencies
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --configuration Release --no-restore
-
       - name: Publish API project
-        run: dotnet publish src/StudioTechBI.AgentHostAPI/StudioTechBI.AgentHostAPI.csproj \
-          --configuration Release \
-          --no-build \
-          --output "${{ github.workspace }}/publish"
+        run: |
+          dotnet publish src/StudioTechBI.AgentHostAPI/StudioTechBI.AgentHostAPI.csproj \
+            --configuration Release \
+            --output "${{ github.workspace }}/publish"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
