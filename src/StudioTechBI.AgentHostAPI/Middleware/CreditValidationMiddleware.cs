@@ -25,6 +25,7 @@ public sealed class CreditValidationMiddleware
     internal const string TenantIdItemKey = "ResolvedTenantId";
 
     private static readonly PathString _generatePath = new("/api/blueprints/generate");
+    private static readonly PathString _generatePathAlias = new("/api/blueprint/generate");
 
     private readonly RequestDelegate _next;
 
@@ -35,8 +36,10 @@ public sealed class CreditValidationMiddleware
         ICreditEngine creditEngine,
         IOptions<SubscriptionDefaults> subscriptionDefaults)
     {
-        if (!context.Request.Path.Equals(_generatePath, StringComparison.OrdinalIgnoreCase)
-            || !HttpMethods.IsPost(context.Request.Method))
+        var isGeneratePath = context.Request.Path.Equals(_generatePath, StringComparison.OrdinalIgnoreCase)
+            || context.Request.Path.Equals(_generatePathAlias, StringComparison.OrdinalIgnoreCase);
+
+        if (!isGeneratePath || !HttpMethods.IsPost(context.Request.Method))
         {
             await _next(context);
             return;
@@ -45,6 +48,7 @@ public sealed class CreditValidationMiddleware
         var defaults = subscriptionDefaults.Value;
 
         var tenantId = context.Request.Headers[TenantIdHeader].FirstOrDefault()
+            ?? context.Request.Query["clientCode"].FirstOrDefault()
             ?? defaults.FallbackTenantId;
 
         if (string.IsNullOrWhiteSpace(tenantId))

@@ -15,6 +15,7 @@ namespace StudioTechBI.AgentHostAPI.Controllers;
 /// <summary>Blueprint generation endpoints.</summary>
 [ApiController]
 [Route("api/blueprints")]
+[Route("api/blueprint")]
 [Produces("application/json")]
 public sealed class BlueprintsController : ControllerBase
 {
@@ -22,6 +23,7 @@ public sealed class BlueprintsController : ControllerBase
     private readonly IBlueprintPersistenceService _persistence;
     private readonly IBlueprintPdfService _pdfService;
     private readonly ICreditEngine _creditEngine;
+    private readonly IUsageRepository _usageRepository;
     private readonly AgentOptions _agentOptions;
     private readonly ILogger<BlueprintsController> _logger;
 
@@ -30,6 +32,7 @@ public sealed class BlueprintsController : ControllerBase
         IBlueprintPersistenceService persistence,
         IBlueprintPdfService pdfService,
         ICreditEngine creditEngine,
+        IUsageRepository usageRepository,
         IOptions<AgentOptions> agentOptions,
         ILogger<BlueprintsController> logger)
     {
@@ -37,6 +40,7 @@ public sealed class BlueprintsController : ControllerBase
         _persistence = persistence;
         _pdfService = pdfService;
         _creditEngine = creditEngine;
+        _usageRepository = usageRepository;
         _agentOptions = agentOptions.Value;
         _logger = logger;
     }
@@ -77,6 +81,12 @@ public sealed class BlueprintsController : ControllerBase
         [FromBody] GenerateBlueprintRequest request,
         CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(request.BusinessRequirement))
+            return BadRequest(new { status = 400, title = "Validation Failed", detail = "businessRequirement is required." });
+
+        if (string.IsNullOrWhiteSpace(request.Industry))
+            return BadRequest(new { status = 400, title = "Validation Failed", detail = "industry is required." });
+
         var requestId = Guid.NewGuid();
         var sw = Stopwatch.StartNew();
 
@@ -182,6 +192,76 @@ public sealed class BlueprintsController : ControllerBase
         };
 
         return Ok(result);
+    }
+
+    /// <summary>Returns the credit balance for a client/tenant.</summary>
+    /// <param name="clientCode">Client code used as the tenant identifier.</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpGet("credits")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetCredits([FromQuery] string clientCode, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(clientCode))
+            return BadRequest(new { status = 400, title = "Validation Failed", detail = "clientCode query parameter is required." });
+
+        var subscription = await _creditEngine.GetOrCreateSubscriptionAsync(clientCode, clientCode, ct);
+        await _creditEngine.CheckAndResetIfNeededAsync(subscription, ct);
+
+        return Ok(new
+        {
+            clientCode,
+            plan = subscription.Plan.Name,
+            creditsRemaining = subscription.Plan.IsUnlimited ? (int?)null : subscription.CreditsRemaining,
+            creditsUsedThisCycle = subscription.CreditsUsedThisCycle,
+            isUnlimited = subscription.Plan.IsUnlimited,
+            nextResetDate = subscription.NextResetDate,
+            currentCycleStart = subscription.CurrentCycleStart
+        });
+    }
+
+    /// <summary>Returns the generation request history for a client/tenant.</summary>
+    /// <param name="clientCode">Client code used as the tenant identifier.</param>
+    /// <param name="page">Page number (1-based).</param>
+    /// <param name="pageSize">Results per page (max 100).</param>
+    /// <param name="ct">Cancellation token.</param>
+    [HttpGet("requests")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetRequests(
+        [FromQuery] string clientCode,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(clientCode))
+            return BadRequest(new { status = 400, title = "Validation Failed", detail = "clientCode query parameter is required." });
+
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        page = Math.Max(1, page);
+
+        var records = await _usageRepository.GetByTenantAsync(clientCode, page, pageSize, ct);
+        var total = await _usageRepository.GetTotalCountAsync(clientCode, ct);
+
+        return Ok(new
+        {
+            clientCode,
+            page,
+            pageSize,
+            totalCount = total,
+            totalPages = (int)Math.Ceiling(total / (double)pageSize),
+            items = records.Select(r => new
+            {
+                requestId = r.RequestId,
+                provider = r.Provider,
+                model = r.Model,
+                tokensUsed = r.TokensUsed,
+                creditsConsumed = r.CreditsConsumed,
+                executionTimeMs = r.ExecutionTimeMs,
+                status = r.Status.ToString(),
+                timestamp = r.Timestamp
+            })
+        });
     }
 
     /// <summary>
