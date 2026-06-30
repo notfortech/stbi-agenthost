@@ -65,10 +65,9 @@ public static class ServiceCollectionExtensions
 
         // Claude (Anthropic)
         services.AddKeyedScoped<IBlueprintProvider, ClaudeBlueprintProvider>(ProviderType.Claude);
-        services.AddHttpClient<ClaudeBlueprintProvider>(client =>
+        services.AddHttpClient("Claude", client =>
         {
             client.BaseAddress = new Uri(providerOptions.Claude.BaseUrl);
-            // Never log the key — set it on the client only.
             client.DefaultRequestHeaders.Add("x-api-key", providerOptions.Claude.ApiKey);
             client.DefaultRequestHeaders.Add("anthropic-version", providerOptions.Claude.AnthropicVersion);
             client.Timeout = TimeSpan.FromSeconds(providerOptions.Claude.TimeoutSeconds);
@@ -76,7 +75,7 @@ public static class ServiceCollectionExtensions
 
         // OpenAI
         services.AddKeyedScoped<IBlueprintProvider, OpenAIBlueprintProvider>(ProviderType.OpenAI);
-        services.AddHttpClient<OpenAIBlueprintProvider>(client =>
+        services.AddHttpClient("OpenAI", client =>
         {
             client.BaseAddress = new Uri(providerOptions.OpenAI.BaseUrl);
             client.DefaultRequestHeaders.Add("Authorization", $"Bearer {providerOptions.OpenAI.ApiKey}");
@@ -85,7 +84,7 @@ public static class ServiceCollectionExtensions
 
         // Groq (OpenAI-compatible)
         services.AddKeyedScoped<IBlueprintProvider, GroqBlueprintProvider>(ProviderType.Groq);
-        services.AddHttpClient<GroqBlueprintProvider>(client =>
+        services.AddHttpClient("Groq", client =>
         {
             client.BaseAddress = new Uri(providerOptions.Groq.BaseUrl);
             client.DefaultRequestHeaders.Add("Authorization", $"Bearer {providerOptions.Groq.ApiKey}");

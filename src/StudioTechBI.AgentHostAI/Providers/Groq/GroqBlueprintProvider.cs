@@ -20,11 +20,11 @@ public sealed class GroqBlueprintProvider : IBlueprintProvider
     public ProviderType Type => ProviderType.Groq;
 
     public GroqBlueprintProvider(
-        HttpClient http,
+        IHttpClientFactory httpClientFactory,
         IOptions<AIProviderOptions> options,
         ILogger<GroqBlueprintProvider> logger)
     {
-        _http = http;
+        _http = httpClientFactory.CreateClient("Groq");
         _options = options.Value.Groq;
         _logger = logger;
     }

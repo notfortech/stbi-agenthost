@@ -24,11 +24,11 @@ public sealed class ClaudeBlueprintProvider : IBlueprintProvider
     public ProviderType Type => ProviderType.Claude;
 
     public ClaudeBlueprintProvider(
-        HttpClient http,
+        IHttpClientFactory httpClientFactory,
         IOptions<AIProviderOptions> options,
         ILogger<ClaudeBlueprintProvider> logger)
     {
-        _http = http;
+        _http = httpClientFactory.CreateClient("Claude");
         _options = options.Value.Claude;
         _logger = logger;
     }
