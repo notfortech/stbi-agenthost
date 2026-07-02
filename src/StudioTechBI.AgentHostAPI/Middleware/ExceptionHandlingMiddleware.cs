@@ -44,9 +44,9 @@ public sealed class ExceptionHandlingMiddleware
 
         var (status, title, detail) = ex switch
         {
-            OperationCanceledException =>
+            OperationCanceledException oce =>
                 (StatusCodes.Status408RequestTimeout, "Request Timeout",
-                 "The request was cancelled or timed out waiting for the AI provider."),
+                 $"The request was cancelled or timed out. Token={oce.CancellationToken.IsCancellationRequested}"),
 
             ValidationException ve =>
                 (StatusCodes.Status400BadRequest, "Validation Failed",
@@ -62,22 +62,43 @@ public sealed class ExceptionHandlingMiddleware
 
             ProviderUnavailableException pue =>
                 (StatusCodes.Status424FailedDependency, "Provider Unavailable",
-                 pue.Message),
+                 $"{pue.Message} | InnerType={pue.InnerException?.GetType().Name} | Inner={pue.InnerException?.Message}"),
 
-            BlueprintParseException =>
+            BlueprintParseException bpe =>
                 (StatusCodes.Status502BadGateway, "Blueprint Parse Failed",
-                 ex.Message),
+                 bpe.Message),
+
+            InvalidOperationException ioe =>
+                (StatusCodes.Status500InternalServerError, "Configuration or State Error",
+                 ioe.Message),
 
             _ =>
                 (StatusCodes.Status500InternalServerError, "Internal Server Error",
-                 "An unexpected error occurred. Check server logs with the provided traceId.")
+                 $"[{ex.GetType().Name}] {ex.Message}")
         };
 
-        // Only log full stack for unexpected errors; known errors at Warning.
-        if (status == StatusCodes.Status500InternalServerError)
-            _logger.LogError(ex, "Unhandled exception | TraceId={TraceId} | {Method} {Path}", traceId, context.Request.Method, context.Request.Path);
+        // Log full exception chain for every error so Azure log stream is always diagnostic.
+        var innerChain = BuildInnerChain(ex);
+        if (status >= StatusCodes.Status500InternalServerError)
+            _logger.LogError(ex,
+                "Unhandled [{ExType}] | TraceId={TraceId} | {Method} {Path} | {Message} | InnerChain={InnerChain}",
+                ex.GetType().Name, traceId, context.Request.Method, context.Request.Path, ex.Message, innerChain);
         else
-            _logger.LogWarning(ex, "{Title} | TraceId={TraceId} | {Method} {Path}", title, traceId, context.Request.Method, context.Request.Path);
+            _logger.LogWarning(ex,
+                "{Title} [{ExType}] | TraceId={TraceId} | {Method} {Path} | {Message}",
+                title, ex.GetType().Name, traceId, context.Request.Method, context.Request.Path, ex.Message);
+
+        static string BuildInnerChain(Exception? e)
+        {
+            var parts = new List<string>();
+            var inner = e?.InnerException;
+            while (inner != null)
+            {
+                parts.Add($"{inner.GetType().Name}: {inner.Message}");
+                inner = inner.InnerException;
+            }
+            return parts.Count == 0 ? "(none)" : string.Join(" → ", parts);
+        }
 
         var problem = new ProblemDetails
         {

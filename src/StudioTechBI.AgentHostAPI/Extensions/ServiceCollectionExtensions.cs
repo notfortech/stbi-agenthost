@@ -86,8 +86,10 @@ public static class ServiceCollectionExtensions
             if (claudeUri != null) client.BaseAddress = claudeUri;
             client.DefaultRequestHeaders.Add("x-api-key", providerOptions.Claude.ApiKey);
             client.DefaultRequestHeaders.Add("anthropic-version", providerOptions.Claude.AnthropicVersion);
+            // Use the configured timeout directly — AddStandardResilienceHandler's default
+            // 10-second attempt timeout kills legitimate long AI calls (blueprints take 15-30s).
             client.Timeout = TimeSpan.FromSeconds(providerOptions.Claude.TimeoutSeconds);
-        }).AddStandardResilienceHandler();
+        });
 
         // OpenAI
         services.AddKeyedScoped<IBlueprintProvider, OpenAIBlueprintProvider>(ProviderType.OpenAI);
@@ -97,7 +99,7 @@ public static class ServiceCollectionExtensions
             if (openAiUri != null) client.BaseAddress = openAiUri;
             client.DefaultRequestHeaders.Add("Authorization", $"Bearer {providerOptions.OpenAI.ApiKey}");
             client.Timeout = TimeSpan.FromSeconds(providerOptions.OpenAI.TimeoutSeconds);
-        }).AddStandardResilienceHandler();
+        });
 
         // Groq (OpenAI-compatible)
         services.AddKeyedScoped<IBlueprintProvider, GroqBlueprintProvider>(ProviderType.Groq);
@@ -107,7 +109,7 @@ public static class ServiceCollectionExtensions
             if (groqUri != null) client.BaseAddress = groqUri;
             client.DefaultRequestHeaders.Add("Authorization", $"Bearer {providerOptions.Groq.ApiKey}");
             client.Timeout = TimeSpan.FromSeconds(providerOptions.Groq.TimeoutSeconds);
-        }).AddStandardResilienceHandler();
+        });
 
         // ── AI pipeline: routing, prompting, parsing, mapping ─────────────────
         services.AddScoped<IBlueprintProviderFactory, BlueprintProviderFactory>();

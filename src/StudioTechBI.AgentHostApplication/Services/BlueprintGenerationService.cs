@@ -42,17 +42,47 @@ public sealed class BlueprintGenerationService : IBlueprintGenerationService
         var provider = _router.Resolve(request);
         var parameters = new GenerationParameters(request.PreferredModel, request.Temperature, request.MaxTokens);
 
-        _logger.LogInformation("Generating blueprint via {Provider}", provider.Type);
+        _logger.LogInformation(
+            "Calling provider={Provider} model={Model} systemLen={SystemLen} userLen={UserLen}",
+            provider.Type, parameters.Model ?? "(default)", prompt.System.Length, prompt.User.Length);
 
-        var result = await provider.GenerateAsync(prompt, parameters, ct);
+        ProviderResult result;
+        try
+        {
+            result = await provider.GenerateAsync(prompt, parameters, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Provider call failed | Provider={Provider} | ExType={ExType} | Message={Message} | InnerType={InnerType} | Inner={InnerMessage}",
+                provider.Type, ex.GetType().Name, ex.Message,
+                ex.InnerException?.GetType().Name, ex.InnerException?.Message);
+            throw;
+        }
 
-        _logger.LogInformation("Provider {Provider} responded in {LatencyMs}ms using {Tokens} tokens",
-            provider.Type, result.LatencyMs, result.Tokens.TotalTokens);
+        _logger.LogInformation(
+            "Provider {Provider} responded | LatencyMs={LatencyMs} | Tokens={Tokens} | ResponseLength={ResponseLength}",
+            provider.Type, result.LatencyMs, result.Tokens.TotalTokens, result.RawJson?.Length ?? 0);
 
         var validation = _validator.Validate(result.RawJson);
-        var document = _parser.Parse(result.RawJson);
+        _logger.LogInformation(
+            "JSON validation | IsValid={IsValid} | Issues={IssueCount} | Warnings={WarnCount}",
+            validation.IsValid, validation.Issues.Count, validation.Warnings.Count);
 
-        return _mapper.ToResponse(document, result, validation, correlationId, attempts: 1, fallbackUsed: false);
+        try
+        {
+            var document = _parser.Parse(result.RawJson);
+            return _mapper.ToResponse(document, result, validation, correlationId, attempts: 1, fallbackUsed: false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Parse/map failed | ExType={ExType} | Message={Message} | RawLength={RawLength} | RawSnippet={Snippet}",
+                ex.GetType().Name, ex.Message,
+                result.RawJson?.Length ?? 0,
+                result.RawJson?.Length > 200 ? result.RawJson[..200] : result.RawJson);
+            throw;
+        }
     }
 
     public Task<ValidationReport> ValidateAsync(BlueprintRequest request, CancellationToken ct = default)
