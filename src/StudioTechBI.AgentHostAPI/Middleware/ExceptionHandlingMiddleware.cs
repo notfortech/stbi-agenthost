@@ -19,11 +19,13 @@ public sealed class ExceptionHandlingMiddleware
 
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionHandlingMiddleware> _logger;
+    private readonly IWebHostEnvironment _env;
 
-    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
+    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger, IWebHostEnvironment env)
     {
         _next = next;
         _logger = logger;
+        _env = env;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -81,12 +83,14 @@ public sealed class ExceptionHandlingMiddleware
         var innerChain = BuildInnerChain(ex);
         if (status >= StatusCodes.Status500InternalServerError)
             _logger.LogError(ex,
-                "Unhandled [{ExType}] | TraceId={TraceId} | {Method} {Path} | {Message} | InnerChain={InnerChain}",
-                ex.GetType().Name, traceId, context.Request.Method, context.Request.Path, ex.Message, innerChain);
+                "UNHANDLED_EXCEPTION [{ExType}] TraceId={TraceId} | {Method} {Path} | Message={Message} | InnerChain={InnerChain} | Stack={Stack}",
+                ex.GetType().FullName, traceId, context.Request.Method, context.Request.Path,
+                ex.Message, innerChain, ex.StackTrace);
         else
             _logger.LogWarning(ex,
-                "{Title} [{ExType}] | TraceId={TraceId} | {Method} {Path} | {Message}",
-                title, ex.GetType().Name, traceId, context.Request.Method, context.Request.Path, ex.Message);
+                "{Title} [{ExType}] | TraceId={TraceId} | {Method} {Path} | {Message} | InnerChain={InnerChain}",
+                title, ex.GetType().Name, traceId, context.Request.Method, context.Request.Path,
+                ex.Message, innerChain);
 
         static string BuildInnerChain(Exception? e)
         {
@@ -108,6 +112,13 @@ public sealed class ExceptionHandlingMiddleware
             Instance = context.Request.Path
         };
         problem.Extensions["traceId"] = traceId;
+
+        // Always include exception chain in the response during this diagnostic phase
+        // so the caller can identify the root cause without needing Azure log access.
+        problem.Extensions["exceptionType"] = ex.GetType().FullName;
+        problem.Extensions["innerChain"] = innerChain;
+        if (!_env.IsProduction())
+            problem.Extensions["stackTrace"] = ex.StackTrace;
 
         if (context.Response.HasStarted) return;
         context.Response.StatusCode = status;
