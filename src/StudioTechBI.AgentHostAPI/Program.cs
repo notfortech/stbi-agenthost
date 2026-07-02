@@ -43,8 +43,11 @@ try
                   .AllowAnyHeader()));
 
     // ── Application services ──────────────────────────────────────────────────
-    builder.Services.AddAgentHostServices(builder.Configuration);
-    builder.Services.AddAgentHostSwagger();
+    try { builder.Services.AddAgentHostServices(builder.Configuration); }
+    catch (Exception ex) { Log.Fatal(ex, "Startup failed during AddAgentHostServices"); throw; }
+
+    try { builder.Services.AddAgentHostSwagger(); }
+    catch (Exception ex) { Log.Fatal(ex, "Startup failed during AddAgentHostSwagger"); throw; }
 
     // ── Azure App Service: forwarded headers ──────────────────────────────────
     // Required so HTTPS detection and IP resolution work behind Azure's load balancer.
@@ -62,10 +65,16 @@ try
     var app = builder.Build();
 
     // ── Seed database on startup ──────────────────────────────────────────────
-    using (var scope = app.Services.CreateScope())
+    try
     {
+        using var scope = app.Services.CreateScope();
         var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
         await seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        Log.Fatal(ex, "Startup failed during DatabaseSeeder.SeedAsync");
+        throw;
     }
 
     // ── Pipeline order matters ────────────────────────────────────────────────
