@@ -64,10 +64,10 @@ public sealed class BlueprintGenerationService : IBlueprintGenerationService
             "Provider {Provider} responded | LatencyMs={LatencyMs} | Tokens={Tokens} | ResponseLength={ResponseLength}",
             provider.Type, result.LatencyMs, result.Tokens.TotalTokens, result.RawJson?.Length ?? 0);
 
-        var validation = _validator.Validate(result.RawJson);
+        var validation = _validator.Validate(result.RawJson!);
         _logger.LogInformation(
-            "JSON validation | IsValid={IsValid} | Issues={IssueCount} | Warnings={WarnCount}",
-            validation.IsValid, validation.Issues.Count, validation.Warnings.Count);
+            "JSON validation | IsValid={IsValid} | Errors={ErrorCount} | Warnings={WarnCount}",
+            validation.IsValid, validation.Errors.Count, validation.Warnings.Count);
 
         try
         {
