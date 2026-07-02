@@ -63,11 +63,27 @@ public static class ServiceCollectionExtensions
             .GetSection(AIProviderOptions.SectionName)
             .Get<AIProviderOptions>() ?? new();
 
+        Serilog.Log.Information(
+            "AI provider config — Claude: enabled={Ce} url={Cu} | OpenAI: enabled={Oe} url={Ou} | Groq: enabled={Ge} url={Gu}",
+            providerOptions.Claude.Enabled, providerOptions.Claude.BaseUrl,
+            providerOptions.OpenAI.Enabled, providerOptions.OpenAI.BaseUrl,
+            providerOptions.Groq.Enabled, providerOptions.Groq.BaseUrl);
+
+        static Uri? SafeUri(string? raw, string providerName)
+        {
+            if (Uri.TryCreate(raw, UriKind.Absolute, out var uri)) return uri;
+            Serilog.Log.Warning(
+                "AI provider {Provider} BaseUrl '{Url}' is missing or not an absolute URI — provider will fail at runtime if used",
+                providerName, raw);
+            return null;
+        }
+
         // Claude (Anthropic)
         services.AddKeyedScoped<IBlueprintProvider, ClaudeBlueprintProvider>(ProviderType.Claude);
+        var claudeUri = SafeUri(providerOptions.Claude.BaseUrl, "Claude");
         services.AddHttpClient("Claude", client =>
         {
-            client.BaseAddress = new Uri(providerOptions.Claude.BaseUrl);
+            if (claudeUri != null) client.BaseAddress = claudeUri;
             client.DefaultRequestHeaders.Add("x-api-key", providerOptions.Claude.ApiKey);
             client.DefaultRequestHeaders.Add("anthropic-version", providerOptions.Claude.AnthropicVersion);
             client.Timeout = TimeSpan.FromSeconds(providerOptions.Claude.TimeoutSeconds);
@@ -75,18 +91,20 @@ public static class ServiceCollectionExtensions
 
         // OpenAI
         services.AddKeyedScoped<IBlueprintProvider, OpenAIBlueprintProvider>(ProviderType.OpenAI);
+        var openAiUri = SafeUri(providerOptions.OpenAI.BaseUrl, "OpenAI");
         services.AddHttpClient("OpenAI", client =>
         {
-            client.BaseAddress = new Uri(providerOptions.OpenAI.BaseUrl);
+            if (openAiUri != null) client.BaseAddress = openAiUri;
             client.DefaultRequestHeaders.Add("Authorization", $"Bearer {providerOptions.OpenAI.ApiKey}");
             client.Timeout = TimeSpan.FromSeconds(providerOptions.OpenAI.TimeoutSeconds);
         }).AddStandardResilienceHandler();
 
         // Groq (OpenAI-compatible)
         services.AddKeyedScoped<IBlueprintProvider, GroqBlueprintProvider>(ProviderType.Groq);
+        var groqUri = SafeUri(providerOptions.Groq.BaseUrl, "Groq");
         services.AddHttpClient("Groq", client =>
         {
-            client.BaseAddress = new Uri(providerOptions.Groq.BaseUrl);
+            if (groqUri != null) client.BaseAddress = groqUri;
             client.DefaultRequestHeaders.Add("Authorization", $"Bearer {providerOptions.Groq.ApiKey}");
             client.Timeout = TimeSpan.FromSeconds(providerOptions.Groq.TimeoutSeconds);
         }).AddStandardResilienceHandler();

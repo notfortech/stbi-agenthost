@@ -16,7 +16,14 @@ public sealed class DatabaseSeeder(
     public async Task SeedAsync(CancellationToken ct = default)
     {
         if (db.Database.IsRelational())
+        {
+            var cs = db.Database.GetConnectionString();
+            if (string.IsNullOrWhiteSpace(cs))
+                throw new InvalidOperationException(
+                    "Database:Provider is set to a relational provider but no connection string is configured. " +
+                    "Set ConnectionStrings__DefaultConnection in Azure App Settings.");
             await db.Database.MigrateAsync(ct);
+        }
         else
             await db.Database.EnsureCreatedAsync(ct);
 
