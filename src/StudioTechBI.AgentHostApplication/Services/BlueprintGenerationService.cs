@@ -74,7 +74,7 @@ public sealed class BlueprintGenerationService : IBlueprintGenerationService
         _logger.LogInformation("Step 8: Parsing and mapping response");
         try
         {
-            var document = _parser.Parse(result.RawJson);
+            var document = _parser.Parse(result.RawJson!);
             var response = _mapper.ToResponse(document, result, validation, correlationId, attempts: 1, fallbackUsed: false);
             _logger.LogInformation("Step 8 done: Response mapped successfully");
             return response;

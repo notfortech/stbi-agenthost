@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using StudioTechBI.AgentHostAI.Options;
 using StudioTechBI.AgentHostApplication.Abstractions;
 using StudioTechBI.AgentHostApplication.Models.Requests;
+using StudioTechBI.AgentHostDomain.Enums;
 using StudioTechBI.AgentHostDomain.Exceptions;
 
 namespace StudioTechBI.AgentHostAI.Routing;
