@@ -65,8 +65,15 @@ try
     var app = builder.Build();
 
     // ── Seed database on startup ──────────────────────────────────────────────
-    
-
+    try { 
+        using var scope = app.Services.CreateScope(); 
+        var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>(); 
+        await seeder.SeedAsync(); 
+    } catch (Exception ex) 
+        { 
+            Log.Fatal(ex, "Startup failed during DatabaseSeeder.SeedAsync"); 
+            throw; 
+    }
     // ── Pipeline order matters ────────────────────────────────────────────────
 
     // 1. Forwarded headers first so subsequent middleware sees the real scheme/IP.
