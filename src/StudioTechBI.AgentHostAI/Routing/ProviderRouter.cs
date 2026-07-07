@@ -21,19 +21,26 @@ public sealed class ProviderRouter : IProviderRouter
     {
         var preferred = request.PreferredProvider ?? _options.DefaultProvider;
 
-        try
+        if (IsEnabled(preferred))
         {
-            return _factory.Create(preferred);
+            try { return _factory.Create(preferred); } catch { }
         }
-        catch
-        {
-            foreach (var fallback in _options.FallbackOrder)
-            {
-                if (fallback == preferred) continue;
-                try { return _factory.Create(fallback); } catch { }
-            }
 
-            throw new ProviderUnavailableException(preferred, "All providers are unavailable");
+        foreach (var fallback in _options.FallbackOrder)
+        {
+            if (fallback == preferred) continue;
+            if (!IsEnabled(fallback)) continue;
+            try { return _factory.Create(fallback); } catch { }
         }
+
+        throw new ProviderUnavailableException(preferred, "No enabled provider is available");
     }
+
+    private bool IsEnabled(ProviderType type) => type switch
+    {
+        ProviderType.OpenAI => _options.OpenAI.Enabled,
+        ProviderType.Claude => _options.Claude.Enabled,
+        ProviderType.Groq   => _options.Groq.Enabled,
+        _ => false
+    };
 }
