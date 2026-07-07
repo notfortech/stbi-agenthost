@@ -15,7 +15,7 @@ public sealed class DatabaseSeeder(
     public async Task SeedAsync(CancellationToken ct = default)
     {
         logger.LogInformation("STEP 1");
-
+    
         if (db.Database.IsRelational())
         {
             await db.Database.MigrateAsync(ct);
@@ -27,9 +27,23 @@ public sealed class DatabaseSeeder(
     
         logger.LogInformation("STEP 2");
     
-        var existingPlans = await db.Plans.ToListAsync(ct);
+        try
+        {
+            logger.LogInformation("STEP 3 - Before querying Plans");
     
-        logger.LogInformation("STEP 3 - Plans loaded: {Count}", existingPlans.Count);
+            var existingPlans = await db.Plans.ToListAsync(ct);
+    
+            logger.LogInformation("STEP 4 - Retrieved {Count} plans", existingPlans.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "FAILED querying Plans. Exception={Type} Message={Message}",
+                ex.GetType().FullName,
+                ex.Message);
+    
+            throw;
+        }
     }
 
     internal static DateTimeOffset ComputeNextReset(DateTimeOffset from, ResetFrequency freq) => freq switch
