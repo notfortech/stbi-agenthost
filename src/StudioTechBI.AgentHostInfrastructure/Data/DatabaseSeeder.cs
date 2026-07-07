@@ -18,4 +18,14 @@ public sealed class DatabaseSeeder(
          _logger.LogInformation("DatabaseSeeder reached.");
         return Task.CompletedTask;
     }    
+    
+internal static DateTimeOffset ComputeNextReset(DateTimeOffset from, ResetFrequency freq) => freq switch
+    {
+        ResetFrequency.Daily     => from.AddDays(1),
+        ResetFrequency.Weekly    => from.AddDays(7),
+        ResetFrequency.Monthly   => from.AddMonths(1),
+        ResetFrequency.Quarterly => from.AddMonths(3),
+        ResetFrequency.Yearly    => from.AddYears(1),
+        _                        => from.AddMonths(1),
+    };
 }
