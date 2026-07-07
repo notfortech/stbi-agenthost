@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using StudioTechBI.AgentHostDomain.Entities;
 using StudioTechBI.AgentHostApplication.Models;
 using StudioTechBI.AgentHostDomain.Enums;
 
