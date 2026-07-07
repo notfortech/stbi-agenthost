@@ -52,6 +52,12 @@ public sealed class OpenAIBlueprintProvider : IBlueprintProvider
         var json = JsonSerializer.Serialize(body);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
+        _logger.LogInformation(
+            "OpenAI PRE-REQUEST | BaseAddress={BaseAddress} Model={Model} Temperature={Temperature} MaxTokens={MaxTokens} HasAuthHeader={HasAuthHeader} SystemLen={SystemLen} UserLen={UserLen}",
+            _http.BaseAddress, model, temperature, maxTokens,
+            _http.DefaultRequestHeaders.Authorization is not null,
+            prompt.System.Length, prompt.User.Length);
+
         var sw = Stopwatch.StartNew();
         try
         {
@@ -62,11 +68,26 @@ public sealed class OpenAIBlueprintProvider : IBlueprintProvider
             {
                 var error = await response.Content.ReadAsStringAsync(ct);
                 _logger.LogError("OpenAI returned {Status}: {Error}", response.StatusCode, error);
-                throw new ProviderUnavailableException(ProviderType.OpenAI, $"OpenAI returned {response.StatusCode}");
+                throw new ProviderUnavailableException(ProviderType.OpenAI,
+                    $"OpenAI returned {(int)response.StatusCode} ({response.StatusCode}). Response: {error}");
             }
 
             var responseJson = await response.Content.ReadAsStringAsync(ct);
-            using var doc = JsonDocument.Parse(responseJson);
+            JsonDocument doc;
+            try
+            {
+                doc = JsonDocument.Parse(responseJson);
+            }
+            catch (JsonException parseEx)
+            {
+                _logger.LogError(parseEx,
+                    "OpenAI response JSON parse failed | RawLength={RawLength} | Raw={Raw}",
+                    responseJson.Length,
+                    responseJson.Length > 500 ? responseJson[..500] : responseJson);
+                throw new ProviderUnavailableException(ProviderType.OpenAI, $"Failed to parse OpenAI response: {parseEx.Message}", parseEx);
+            }
+            using (doc)
+            {
             var rawContent = doc.RootElement
                 .GetProperty("choices")[0]
                 .GetProperty("message")
@@ -80,6 +101,7 @@ public sealed class OpenAIBlueprintProvider : IBlueprintProvider
                 usage.GetProperty("total_tokens").GetInt32());
 
             return new ProviderResult(rawContent, new ModelDescriptor(ProviderType.OpenAI, model), tokens, sw.ElapsedMilliseconds);
+            }
         }
         catch (Exception ex) when (ex is not ProviderUnavailableException)
         {
