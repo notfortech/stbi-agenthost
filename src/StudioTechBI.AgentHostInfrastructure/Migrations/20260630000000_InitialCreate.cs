@@ -2,8 +2,6 @@
 using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
-#nullable disable
-
 namespace StudioTechBI.AgentHostInfrastructure.Migrations
 {
     /// <inheritdoc />

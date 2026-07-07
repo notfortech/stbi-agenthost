@@ -17,8 +17,18 @@ public static class InfrastructureServiceExtensions
         var dbProvider = configuration["Database:Provider"] ?? "InMemory";
         if (dbProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase))
         {
+            // Accept connection string from either standard ASP.NET key or legacy Database:ConnectionString key.
+            var connectionString =
+                configuration.GetConnectionString("DefaultConnection")
+                ?? configuration["Database:ConnectionString"];
+
+            if (string.IsNullOrWhiteSpace(connectionString))
+                throw new InvalidOperationException(
+                    "Database:Provider is SqlServer but no connection string is configured. " +
+                    "Set ConnectionStrings__DefaultConnection in Azure App Settings (or the equivalent environment variable).");
+
             services.AddDbContext<AgentHostDbContext>(opt =>
-                opt.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+                opt.UseSqlServer(connectionString));
         }
         else
         {
