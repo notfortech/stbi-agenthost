@@ -11,10 +11,39 @@ public sealed class DatabaseSeeder(
     IOptions<SubscriptionDefaults> subscriptionDefaults,
     ILogger<DatabaseSeeder> logger)
 {
-    public Task SeedAsync(CancellationToken ct = default)
+    public async Task SeedAsync(CancellationToken ct = default)
     {
-        logger.LogInformation("DatabaseSeeder reached.");
-        return Task.CompletedTask;
+        logger.LogInformation("STEP 1");
+    
+        if (db.Database.IsRelational())
+        {
+            logger.LogInformation("STEP 2 - Relational database");
+    
+            var cs = db.Database.GetConnectionString();
+    
+            logger.LogInformation("STEP 3 - Connection string exists: {HasConnectionString}",
+                !string.IsNullOrWhiteSpace(cs));
+    
+            if (string.IsNullOrWhiteSpace(cs))
+            {
+                throw new InvalidOperationException(
+                    "Database connection string is missing.");
+            }
+    
+            logger.LogInformation("STEP 4 - BEFORE MIGRATE");
+    
+            await db.Database.MigrateAsync(ct);
+    
+            logger.LogInformation("STEP 5 - AFTER MIGRATE");
+        }
+        else
+        {
+            logger.LogInformation("STEP 6 - InMemory");
+    
+            await db.Database.EnsureCreatedAsync(ct);
+    
+            logger.LogInformation("STEP 7 - AFTER ENSURE CREATED");
+        }
     }
 
     internal static DateTimeOffset ComputeNextReset(DateTimeOffset from, ResetFrequency freq) => freq switch
