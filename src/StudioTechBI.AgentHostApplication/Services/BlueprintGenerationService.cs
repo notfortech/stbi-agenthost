@@ -38,14 +38,17 @@ public sealed class BlueprintGenerationService : IBlueprintGenerationService
         var correlationId = request.RequestId.ToString();
         using var scope = _logger.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId });
 
+        _logger.LogInformation("Step 1: Building prompt | RequestId={RequestId}", correlationId);
         var prompt = await _promptBuilder.BuildAsync(request, ct);
+        _logger.LogInformation("Step 2: Prompt built | SystemLen={SystemLen} UserLen={UserLen}", prompt.System.Length, prompt.User.Length);
+
+        _logger.LogInformation("Step 3: Resolving provider");
         var provider = _router.Resolve(request);
         var parameters = new GenerationParameters(request.PreferredModel, request.Temperature, request.MaxTokens);
+        _logger.LogInformation("Step 4: Provider resolved | Provider={Provider} Model={Model} Temperature={Temperature} MaxTokens={MaxTokens}",
+            provider.Type, parameters.Model ?? "(default)", parameters.Temperature, parameters.MaxTokens);
 
-        _logger.LogInformation(
-            "Calling provider={Provider} model={Model} systemLen={SystemLen} userLen={UserLen}",
-            provider.Type, parameters.Model ?? "(default)", prompt.System.Length, prompt.User.Length);
-
+        _logger.LogInformation("Step 5: Calling provider | Provider={Provider}", provider.Type);
         ProviderResult result;
         try
         {
@@ -54,30 +57,32 @@ public sealed class BlueprintGenerationService : IBlueprintGenerationService
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Provider call failed | Provider={Provider} | ExType={ExType} | Message={Message} | InnerType={InnerType} | Inner={InnerMessage}",
+                "Step 5 FAILED: Provider call failed | Provider={Provider} | ExType={ExType} | Message={Message} | InnerType={InnerType} | Inner={InnerMessage}",
                 provider.Type, ex.GetType().Name, ex.Message,
                 ex.InnerException?.GetType().Name, ex.InnerException?.Message);
             throw;
         }
 
-        _logger.LogInformation(
-            "Provider {Provider} responded | LatencyMs={LatencyMs} | Tokens={Tokens} | ResponseLength={ResponseLength}",
+        _logger.LogInformation("Step 6: Provider responded | Provider={Provider} LatencyMs={LatencyMs} Tokens={Tokens} ResponseLength={ResponseLength}",
             provider.Type, result.LatencyMs, result.Tokens.TotalTokens, result.RawJson?.Length ?? 0);
 
+        _logger.LogInformation("Step 7: Validating JSON");
         var validation = _validator.Validate(result.RawJson!);
-        _logger.LogInformation(
-            "JSON validation | IsValid={IsValid} | Errors={ErrorCount} | Warnings={WarnCount}",
+        _logger.LogInformation("Step 7 done | IsValid={IsValid} Errors={ErrorCount} Warnings={WarnCount}",
             validation.IsValid, validation.Errors.Count, validation.Warnings.Count);
 
+        _logger.LogInformation("Step 8: Parsing and mapping response");
         try
         {
             var document = _parser.Parse(result.RawJson);
-            return _mapper.ToResponse(document, result, validation, correlationId, attempts: 1, fallbackUsed: false);
+            var response = _mapper.ToResponse(document, result, validation, correlationId, attempts: 1, fallbackUsed: false);
+            _logger.LogInformation("Step 8 done: Response mapped successfully");
+            return response;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Parse/map failed | ExType={ExType} | Message={Message} | RawLength={RawLength} | RawSnippet={Snippet}",
+                "Step 8 FAILED: Parse/map failed | ExType={ExType} | Message={Message} | RawLength={RawLength} | RawSnippet={Snippet}",
                 ex.GetType().Name, ex.Message,
                 result.RawJson?.Length ?? 0,
                 result.RawJson?.Length > 200 ? result.RawJson[..200] : result.RawJson);

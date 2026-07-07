@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using FluentValidation;
 using Microsoft.Extensions.Http.Resilience;
 using StudioTechBI.AgentHostAI.Mapping;
@@ -69,6 +70,12 @@ public static class ServiceCollectionExtensions
             providerOptions.OpenAI.Enabled, providerOptions.OpenAI.BaseUrl,
             providerOptions.Groq.Enabled, providerOptions.Groq.BaseUrl);
 
+        Serilog.Log.Information(
+            "OpenAI diagnostic — DefaultProvider={DefaultProvider} Enabled={Enabled} BaseUrl={BaseUrl} DefaultModel={DefaultModel} ApiKeyPresent={ApiKeyPresent}",
+            providerOptions.DefaultProvider, providerOptions.OpenAI.Enabled,
+            providerOptions.OpenAI.BaseUrl, providerOptions.OpenAI.DefaultModel,
+            !string.IsNullOrEmpty(providerOptions.OpenAI.ApiKey));
+
         static Uri? SafeUri(string? raw, string providerName)
         {
             if (Uri.TryCreate(raw, UriKind.Absolute, out var uri)) return uri;
@@ -97,7 +104,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient("OpenAI", client =>
         {
             if (openAiUri != null) client.BaseAddress = openAiUri;
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {providerOptions.OpenAI.ApiKey}");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", providerOptions.OpenAI.ApiKey);
             client.Timeout = TimeSpan.FromSeconds(providerOptions.OpenAI.TimeoutSeconds);
         });
 
