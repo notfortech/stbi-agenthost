@@ -4,7 +4,7 @@ using StudioTechBI.AgentHostApplication.Models;
 namespace StudioTechBI.AgentHostAPI.Middleware;
 
 /// <summary>
-/// Validates the `Authorization: Bearer &lt;ApiKey&gt;` header sent by Koru on every request.
+/// Validates the <c>X-Api-Key</c> header sent by Koru on every request.
 /// Bypass is active when Auth:ApiKey is empty (dev / private-VNet deployments).
 /// </summary>
 public sealed class ApiKeyAuthMiddleware(RequestDelegate next)
@@ -36,10 +36,7 @@ public sealed class ApiKeyAuthMiddleware(RequestDelegate next)
             return;
         }
 
-        var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
-        var provided = authHeader?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
-            ? authHeader["Bearer ".Length..].Trim()
-            : null;
+        var provided = context.Request.Headers["X-Api-Key"].FirstOrDefault();
 
         if (provided != requiredKey)
         {
@@ -48,7 +45,7 @@ public sealed class ApiKeyAuthMiddleware(RequestDelegate next)
             {
                 status = 401,
                 title = "Unauthorized",
-                detail = "A valid Authorization: Bearer <ApiKey> header is required."
+                detail = "A valid X-Api-Key header is required."
             });
             return;
         }
