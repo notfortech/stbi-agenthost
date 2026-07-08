@@ -15,7 +15,8 @@ public sealed class ApiKeyAuthMiddleware(RequestDelegate next)
         "/swagger",
         "/healthz",
         "/health",
-        "/api/health"
+        "/api/health",
+        "/ping"
     ];
 
     public async Task InvokeAsync(HttpContext context, IOptions<AuthOptions> authOptions)
