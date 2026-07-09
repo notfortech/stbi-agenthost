@@ -85,7 +85,7 @@ try
     // 3. Correlation ID — stamps every request/response with X-Correlation-Id.
     app.UseMiddleware<CorrelationIdMiddleware>();
 
-    // 4. Bearer API key validation — Koru sends Authorization: Bearer <ApiKey>.
+    // 4. X-Api-Key validation — Koru sends the shared secret as the X-Api-Key header.
     app.UseMiddleware<ApiKeyAuthMiddleware>();
 
     // 5. Credit validation — intercepts POST /api/blueprints/generate before routing.

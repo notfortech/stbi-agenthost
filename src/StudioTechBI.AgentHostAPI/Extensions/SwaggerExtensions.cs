@@ -27,15 +27,13 @@ public static class SwaggerExtensions
                 Contact = new OpenApiContact { Name = "StudioTech BI" }
             });
 
-            // ── Auth: JWT Bearer (placeholder for future auth middleware) ──────
-            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            // ── Auth: shared-secret API key, validated by ApiKeyAuthMiddleware ──
+            options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
             {
-                Name = "Authorization",
-                Type = SecuritySchemeType.Http,
-                Scheme = "bearer",
-                BearerFormat = "JWT",
+                Name = "X-Api-Key",
+                Type = SecuritySchemeType.ApiKey,
                 In = ParameterLocation.Header,
-                Description = "Enter your JWT token. Example: Bearer {token}"
+                Description = "Shared-secret API key sent by Koru. Example: X-Api-Key: {key}"
             });
 
             options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -43,7 +41,7 @@ public static class SwaggerExtensions
                 {
                     new OpenApiSecurityScheme
                     {
-                        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "ApiKey" }
                     },
                     Array.Empty<string>()
                 }
