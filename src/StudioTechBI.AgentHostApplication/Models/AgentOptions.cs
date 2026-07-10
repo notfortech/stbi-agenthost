@@ -9,10 +9,10 @@ public sealed class AgentOptions
     public const string SectionName = "Agent";
 
     /// <summary>AI provider to use by default (Claude | OpenAI | Groq).</summary>
-    public string Provider { get; init; } = "Claude";
+    public string Provider { get; init; } = "OpenAI";
 
     /// <summary>Model identifier sent to the provider.</summary>
-    public string Model { get; init; } = "claude-sonnet-4-6";
+    public string Model { get; init; } = "gpt-4o";
 
     /// <summary>When true, each generated blueprint is written to <see cref="BlueprintFolder"/>.</summary>
     public bool SaveBlueprints { get; init; } = true;
