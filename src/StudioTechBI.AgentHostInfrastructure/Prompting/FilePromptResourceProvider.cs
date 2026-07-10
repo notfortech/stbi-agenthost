@@ -68,6 +68,10 @@ public sealed class FilePromptResourceProvider : IPromptResourceProvider
             """
             You are an expert BI architect. Generate a comprehensive analytics blueprint as valid JSON.
             The JSON must include: schemaVersion, overview, dashboards, datasets, metrics, relationships, recommendations.
+            `recommendations` MUST be a flat array of plain strings, one complete sentence per recommendation.
+            Never nest an object inside `recommendations` — no category/priority/rationale sub-fields.
+            `metricRefs`, `dimensions` (inside visuals), and `keys` (inside relationships) MUST likewise be
+            flat arrays of plain strings — never objects.
             {{knowledge_pack}}
             """,
         "blueprint.user" =>
