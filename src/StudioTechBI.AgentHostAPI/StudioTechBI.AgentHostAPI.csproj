@@ -21,6 +21,21 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      resources/ lives at the repo root (sibling to src/), not inside this project folder,
+      so it is not included in `dotnet publish` output by default. FilePromptResourceProvider
+      reads prompt templates and industry knowledge packs from ResourceRoot ("resources",
+      relative to AppContext.BaseDirectory) at runtime — without this, it silently falls back
+      to the much thinner hardcoded template in GetFallbackTemplate.
+    -->
+    <Content Include="..\..\resources\**\*.*">
+      <Link>resources\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
     <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" Version="2.22.0" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.HealthChecks" Version="2.2.0" />

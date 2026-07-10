@@ -27,7 +27,7 @@ public sealed class BlueprintMapper : IBlueprintMapper
             Provider = meta.Model.Provider.ToString(),
             Model = meta.Model.ModelId,
             GenerationDuration = TimeSpan.FromMilliseconds(meta.LatencyMs),
-            Confidence = status == GenerationStatus.Succeeded ? 0.9 : 0.6,
+            Confidence = Math.Clamp(doc.Confidence.Score / 100.0, 0.0, 1.0),
             Blueprint = doc,
             Warnings = validation.Warnings,
             Diagnostics = new GenerationDiagnostics
