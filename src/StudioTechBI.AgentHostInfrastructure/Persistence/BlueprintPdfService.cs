@@ -590,7 +590,7 @@ public sealed class BlueprintPdfService : IBlueprintPdfService
             .PaddingBottom(2)
             .Text(title).FontSize(12).Bold().FontColor(Colors.Blue.Darken2);
 
-    private static void HeaderCell(TableDescriptor table, string text) =>
+    private static void HeaderCell(TableCellDescriptor table, string text) =>
         table.Cell().Background(Colors.Blue.Lighten4).Padding(3).Text(text).Bold().FontSize(8);
 
     private static void TableCell(TableDescriptor table, string text) =>
