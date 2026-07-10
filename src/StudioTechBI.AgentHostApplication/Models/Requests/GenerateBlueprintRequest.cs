@@ -6,13 +6,17 @@ namespace StudioTechBI.AgentHostApplication.Models.Requests;
 /// </summary>
 public sealed class GenerateBlueprintRequest
 {
-    /// <summary>Describe what the dashboards need to achieve.</summary>
-    /// <example>Create an Executive Dashboard for Property Management.</example>
-    public string BusinessRequirement { get; init; } = string.Empty;
-
     /// <summary>Vertical or sector context (e.g. "Property Management", "Retail").</summary>
     /// <example>Property Management</example>
     public string Industry { get; init; } = string.Empty;
+
+    /// <summary>The specific reporting or analytics capability this blueprint should address.</summary>
+    /// <example>NDIS Plan Utilization and Budget Burn-Rate Reporting</example>
+    public string BusinessCapability { get; init; } = string.Empty;
+
+    /// <summary>Describe what the dashboards need to achieve.</summary>
+    /// <example>Create an Executive Dashboard for Property Management.</example>
+    public string BusinessGoal { get; init; } = string.Empty;
 
     /// <summary>
     /// Optional JSON string describing an existing data schema.

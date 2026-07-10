@@ -55,8 +55,9 @@ public sealed class BlueprintsController : ControllerBase
     /// Example request:
     /// <code>
     /// {
-    ///   "businessRequirement": "Create an Executive Dashboard for Property Management.",
     ///   "industry": "Property Management",
+    ///   "businessCapability": "Executive Occupancy and Revenue Reporting",
+    ///   "businessGoal": "Create an Executive Dashboard for Property Management.",
     ///   "existingSchema": null
     /// }
     /// </code>
@@ -81,11 +82,14 @@ public sealed class BlueprintsController : ControllerBase
         [FromBody] GenerateBlueprintRequest request,
         CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.BusinessRequirement))
-            return BadRequest(new { status = 400, title = "Validation Failed", detail = "businessRequirement is required." });
-
         if (string.IsNullOrWhiteSpace(request.Industry))
             return BadRequest(new { status = 400, title = "Validation Failed", detail = "industry is required." });
+
+        if (string.IsNullOrWhiteSpace(request.BusinessCapability))
+            return BadRequest(new { status = 400, title = "Validation Failed", detail = "businessCapability is required." });
+
+        if (string.IsNullOrWhiteSpace(request.BusinessGoal))
+            return BadRequest(new { status = 400, title = "Validation Failed", detail = "businessGoal is required." });
 
         var requestId = Guid.NewGuid();
         var sw = Stopwatch.StartNew();
@@ -103,8 +107,8 @@ public sealed class BlueprintsController : ControllerBase
         {
             RequestId = requestId,
             Industry = request.Industry,
-            BusinessCapability = request.Industry,    // default to industry when not separately provided
-            BusinessGoal = request.BusinessRequirement,
+            BusinessCapability = request.BusinessCapability,
+            BusinessGoal = request.BusinessGoal,
             BusinessRequirements = BuildFullRequirements(request),
             PreferredProvider = providerType,
             PreferredModel = _agentOptions.Model
@@ -315,10 +319,10 @@ public sealed class BlueprintsController : ControllerBase
     private static string BuildFullRequirements(GenerateBlueprintRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.ExistingSchema))
-            return request.BusinessRequirement;
+            return request.BusinessGoal;
 
         return $"""
-                {request.BusinessRequirement}
+                {request.BusinessGoal}
 
                 Existing Schema (column names and types only — no sample data):
                 {request.ExistingSchema}
