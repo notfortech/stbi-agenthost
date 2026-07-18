@@ -23,13 +23,36 @@ public sealed class CreditEngine(
         string tenantId, string tenantName, CancellationToken ct = default)
     {
         var sub = await subscriptionRepo.GetByTenantIdAsync(tenantId, ct);
-        if (sub is not null) return sub;
+        var isInternal = _defaults.InternalTenantIds.Contains(tenantId);
+
+        if (sub is not null)
+        {
+            if (isInternal && sub.Plan.Name != _defaults.InternalTenantPlanName)
+            {
+                // Self-heal: a tenant added to the internal/QA allowlist after it already has a
+                // subscription (e.g. one that already exhausted a Trial allotment) gets upgraded
+                // automatically on next contact — no separate manual admin action needed. Reuses
+                // ChangePlanAsync's existing, audited plan-change logic (proportional carry-over,
+                // TransactionType.PlanChange record, SubscriptionHistory row) instead of
+                // duplicating field-mutation logic here.
+                var internalPlan = await planRepo.GetByNameAsync(_defaults.InternalTenantPlanName, ct)
+                    ?? throw new InvalidOperationException(
+                        $"Internal tenant plan '{_defaults.InternalTenantPlanName}' not found in database.");
+                logger.LogInformation(
+                    "Internal tenant {TenantId} found on plan {CurrentPlan} — upgrading to {InternalPlan}",
+                    tenantId, sub.Plan.Name, internalPlan.Name);
+                return await ChangePlanAsync(tenantId, internalPlan.Id, "system:internal-tenant-allowlist",
+                    "Auto-upgraded on contact — tenant is on the internal/QA allowlist", ct);
+            }
+            return sub;
+        }
 
         if (!_defaults.AutoRegisterNewTenants)
             throw new SubscriptionNotFoundException(tenantId);
 
-        var plan = await planRepo.GetByNameAsync(_defaults.DefaultPlanName, ct)
-            ?? throw new InvalidOperationException($"Default plan '{_defaults.DefaultPlanName}' not found in database.");
+        var defaultPlanName = isInternal ? _defaults.InternalTenantPlanName : _defaults.DefaultPlanName;
+        var plan = await planRepo.GetByNameAsync(defaultPlanName, ct)
+            ?? throw new InvalidOperationException($"Default plan '{defaultPlanName}' not found in database.");
 
         var now = DateTimeOffset.UtcNow;
         sub = new TenantSubscription
