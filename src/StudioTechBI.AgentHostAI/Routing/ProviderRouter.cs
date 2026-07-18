@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StudioTechBI.AgentHostAI.Options;
 using StudioTechBI.AgentHostApplication.Abstractions;
@@ -11,11 +12,13 @@ public sealed class ProviderRouter : IProviderRouter
 {
     private readonly IBlueprintProviderFactory _factory;
     private readonly AIProviderOptions _options;
+    private readonly ILogger<ProviderRouter> _logger;
 
-    public ProviderRouter(IBlueprintProviderFactory factory, IOptions<AIProviderOptions> options)
+    public ProviderRouter(IBlueprintProviderFactory factory, IOptions<AIProviderOptions> options, ILogger<ProviderRouter> logger)
     {
         _factory = factory;
         _options = options.Value;
+        _logger = logger;
     }
 
     public IBlueprintProvider Resolve(BlueprintRequest request)
@@ -24,14 +27,16 @@ public sealed class ProviderRouter : IProviderRouter
 
         if (IsEnabled(preferred))
         {
-            try { return _factory.Create(preferred); } catch { }
+            try { return _factory.Create(preferred); }
+            catch (Exception ex) { _logger.LogError(ex, "Failed to construct provider {Provider}", preferred); }
         }
 
         foreach (var fallback in _options.FallbackOrder)
         {
             if (fallback == preferred) continue;
             if (!IsEnabled(fallback)) continue;
-            try { return _factory.Create(fallback); } catch { }
+            try { return _factory.Create(fallback); }
+            catch (Exception ex) { _logger.LogError(ex, "Failed to construct fallback provider {Provider}", fallback); }
         }
 
         throw new ProviderUnavailableException(preferred, "No enabled provider is available");

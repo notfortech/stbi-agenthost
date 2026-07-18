@@ -69,7 +69,7 @@ public sealed class CreditValidationMiddleware
 
         await creditEngine.CheckAndResetIfNeededAsync(subscription, context.RequestAborted);
 
-        if (!subscription.Plan.IsUnlimited && subscription.CreditsRemaining <= 0)
+        if (!defaults.BypassCreditLimit && !subscription.Plan.IsUnlimited && subscription.CreditsRemaining <= 0)
             throw new InsufficientCreditsException(
                 tenantId,
                 subscription.CreditsRemaining,

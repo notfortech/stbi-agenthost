@@ -37,6 +37,15 @@ public sealed class SubscriptionDefaults
     /// <summary>Plan assigned to tenants in InternalTenantIds, on both first contact and (if they
     /// already have a subscription on a different plan) automatically on next contact.</summary>
     public string InternalTenantPlanName { get; init; } = "Enterprise";
+
+    /// <summary>
+    /// Temporary operational override: when true, no tenant is ever blocked or deducted by the
+    /// app-side credit ledger (treated the same as Plan.IsUnlimited in the check/deduct paths),
+    /// regardless of Plan or CreditsRemaining. Does not affect actual AI provider usage/billing —
+    /// only the app's own credit gate. Intended to be flipped back to false once real per-tenant
+    /// credit enforcement is wanted again.
+    /// </summary>
+    public bool BypassCreditLimit { get; init; } = false;
 }
 
 /// <summary>
