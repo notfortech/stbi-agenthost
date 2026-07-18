@@ -23,6 +23,20 @@ public sealed class SubscriptionDefaults
 
     /// <summary>When true, unknown tenants are automatically registered on the default plan.</summary>
     public bool AutoRegisterNewTenants { get; init; } = true;
+
+    /// <summary>
+    /// Tenant IDs (GUID strings, matching whatever callers send as X-Tenant-Id) that should
+    /// always be provisioned on InternalTenantPlanName instead of DefaultPlanName — for known
+    /// internal/QA accounts that would otherwise repeatedly exhaust a real-customer-sized Trial
+    /// allotment during active testing. Compared case-insensitively. Populate via Azure App
+    /// Settings using indexed keys, e.g. SubscriptionDefaults__InternalTenantIds__0=&lt;guid&gt;,
+    /// __1=&lt;guid&gt;, etc. — no code change needed to add or remove a tenant.
+    /// </summary>
+    public HashSet<string> InternalTenantIds { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Plan assigned to tenants in InternalTenantIds, on both first contact and (if they
+    /// already have a subscription on a different plan) automatically on next contact.</summary>
+    public string InternalTenantPlanName { get; init; } = "Enterprise";
 }
 
 /// <summary>
