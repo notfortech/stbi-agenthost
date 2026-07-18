@@ -123,8 +123,9 @@ public sealed class CreditEngine(
     {
         var creditsToConsume = _defaults.CreditsConsumedPerRequest;
         var balanceBefore = subscription.CreditsRemaining;
+        var treatAsUnlimited = subscription.Plan.IsUnlimited || _defaults.BypassCreditLimit;
 
-        if (!subscription.Plan.IsUnlimited)
+        if (!treatAsUnlimited)
         {
             subscription.CreditsRemaining = Math.Max(0, subscription.CreditsRemaining - creditsToConsume);
             subscription.CreditsUsedThisCycle += creditsToConsume;
@@ -146,15 +147,15 @@ public sealed class CreditEngine(
             Model = model,
             ExecutionTimeMs = executionTimeMs,
             TokensUsed = tokensUsed,
-            CreditsConsumed = subscription.Plan.IsUnlimited ? 0 : creditsToConsume,
+            CreditsConsumed = treatAsUnlimited ? 0 : creditsToConsume,
             Timestamp = DateTimeOffset.UtcNow,
             Status = UsageStatus.Succeeded,
         };
         await usageRepo.AddAsync(usage, ct);
 
         return new CreditDeductionResult(
-            CreditsConsumed: subscription.Plan.IsUnlimited ? 0 : creditsToConsume,
-            CreditsRemaining: subscription.Plan.IsUnlimited ? int.MaxValue : subscription.CreditsRemaining,
+            CreditsConsumed: treatAsUnlimited ? 0 : creditsToConsume,
+            CreditsRemaining: treatAsUnlimited ? int.MaxValue : subscription.CreditsRemaining,
             ResetDate: subscription.NextResetDate,
             PlanName: subscription.Plan.Name,
             IsUnlimited: subscription.Plan.IsUnlimited);
