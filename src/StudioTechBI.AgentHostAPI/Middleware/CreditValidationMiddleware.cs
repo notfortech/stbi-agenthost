@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StudioTechBI.AgentHostApplication.Abstractions.Subscription;
 using StudioTechBI.AgentHostApplication.Models;
@@ -28,8 +29,13 @@ public sealed class CreditValidationMiddleware
     private static readonly PathString _generatePathAlias = new("/api/blueprint/generate");
 
     private readonly RequestDelegate _next;
+    private readonly ILogger<CreditValidationMiddleware> _logger;
 
-    public CreditValidationMiddleware(RequestDelegate next) => _next = next;
+    public CreditValidationMiddleware(RequestDelegate next, ILogger<CreditValidationMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
 
     public async Task InvokeAsync(
         HttpContext context,
@@ -69,7 +75,21 @@ public sealed class CreditValidationMiddleware
 
         await creditEngine.CheckAndResetIfNeededAsync(subscription, context.RequestAborted);
 
-        if (!defaults.BypassCreditLimit && !subscription.Plan.IsUnlimited && subscription.CreditsRemaining <= 0)
+        var wouldBlock = !subscription.Plan.IsUnlimited && subscription.CreditsRemaining <= 0;
+        var blocked = wouldBlock && !defaults.BypassCreditLimit;
+
+        _logger.LogInformation(
+            "Credit Validation | Tenant={TenantId} Subscription={PlanName} CreditsRemaining={CreditsRemaining} " +
+            "CreditsRequired={CreditsRequired} BypassCreditLimit={BypassCreditLimit} Decision={Decision} Reason={Reason}",
+            tenantId,
+            subscription.Plan.Name,
+            subscription.CreditsRemaining,
+            defaults.CreditsConsumedPerRequest,
+            defaults.BypassCreditLimit,
+            blocked ? "BLOCK" : "ALLOW",
+            blocked ? "Insufficient credits" : wouldBlock ? "Insufficient credits, but BypassCreditLimit is enabled" : "Credits available");
+
+        if (blocked)
             throw new InsufficientCreditsException(
                 tenantId,
                 subscription.CreditsRemaining,
