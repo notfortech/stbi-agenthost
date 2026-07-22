@@ -30,7 +30,7 @@ public sealed class CreditsController(
     /// Pre-flight check — resolves (or auto-creates) the tenant's subscription, performs a lazy
     /// cycle reset if due, and returns the current balance. Returns 402 if the tenant has no
     /// credits left; callers should not proceed with the AI call in that case. Respects
-    /// SubscriptionDefaults.BypassCreditLimit, same as CreditValidationMiddleware and
+    /// SubscriptionDefaults.EffectiveBypassCreditLimit, same as CreditValidationMiddleware and
     /// ICreditEngine.DeductAsync — without this, a caller hitting /check directly (bypassing
     /// koru-main's own client-side bypass) would still get blocked here.
     /// </summary>
@@ -52,7 +52,7 @@ public sealed class CreditsController(
         var subscription = await creditEngine.GetOrCreateSubscriptionAsync(tenantId, tenantName, ct);
         await creditEngine.CheckAndResetIfNeededAsync(subscription, ct);
 
-        var bypassed = subscriptionDefaults.Value.BypassCreditLimit;
+        var bypassed = subscriptionDefaults.Value.EffectiveBypassCreditLimit;
 
         if (!subscription.Plan.IsUnlimited && subscription.CreditsRemaining <= 0 && !bypassed)
             throw new InsufficientCreditsException(
@@ -62,7 +62,7 @@ public sealed class CreditsController(
         {
             tenantId,
             plan = subscription.Plan.Name,
-            creditsRemaining = subscription.Plan.IsUnlimited ? (int?)null : (bypassed ? int.MaxValue : subscription.CreditsRemaining),
+            creditsRemaining = subscription.Plan.IsUnlimited ? (int?)null : (bypassed ? SubscriptionDefaults.BypassCreditsRemaining : subscription.CreditsRemaining),
             isUnlimited = subscription.Plan.IsUnlimited,
             nextResetDate = subscription.NextResetDate,
         });
