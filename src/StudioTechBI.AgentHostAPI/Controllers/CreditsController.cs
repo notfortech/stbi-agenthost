@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using StudioTechBI.AgentHostApplication.Abstractions.Subscription;
+using StudioTechBI.AgentHostApplication.Models;
 using StudioTechBI.AgentHostDomain.Exceptions;
 
 namespace StudioTechBI.AgentHostAPI.Controllers;
@@ -16,7 +18,10 @@ namespace StudioTechBI.AgentHostAPI.Controllers;
 [ApiController]
 [Route("api/credits")]
 [Produces("application/json")]
-public sealed class CreditsController(ICreditEngine creditEngine, ILogger<CreditsController> logger) : ControllerBase
+public sealed class CreditsController(
+    ICreditEngine creditEngine,
+    IOptions<SubscriptionDefaults> subscriptionDefaults,
+    ILogger<CreditsController> logger) : ControllerBase
 {
     private const string TenantIdHeader = "X-Tenant-Id";
     private const string TenantNameHeader = "X-Tenant-Name";
@@ -24,7 +29,10 @@ public sealed class CreditsController(ICreditEngine creditEngine, ILogger<Credit
     /// <summary>
     /// Pre-flight check — resolves (or auto-creates) the tenant's subscription, performs a lazy
     /// cycle reset if due, and returns the current balance. Returns 402 if the tenant has no
-    /// credits left; callers should not proceed with the AI call in that case.
+    /// credits left; callers should not proceed with the AI call in that case. Respects
+    /// SubscriptionDefaults.BypassCreditLimit, same as CreditValidationMiddleware and
+    /// ICreditEngine.DeductAsync — without this, a caller hitting /check directly (bypassing
+    /// koru-main's own client-side bypass) would still get blocked here.
     /// </summary>
     /// <response code="200">Tenant has credits available.</response>
     /// <response code="400">X-Tenant-Id header missing.</response>
@@ -44,7 +52,9 @@ public sealed class CreditsController(ICreditEngine creditEngine, ILogger<Credit
         var subscription = await creditEngine.GetOrCreateSubscriptionAsync(tenantId, tenantName, ct);
         await creditEngine.CheckAndResetIfNeededAsync(subscription, ct);
 
-        if (!subscription.Plan.IsUnlimited && subscription.CreditsRemaining <= 0)
+        var bypassed = subscriptionDefaults.Value.BypassCreditLimit;
+
+        if (!subscription.Plan.IsUnlimited && subscription.CreditsRemaining <= 0 && !bypassed)
             throw new InsufficientCreditsException(
                 tenantId, subscription.CreditsRemaining, subscription.NextResetDate, subscription.Plan.Name);
 
@@ -52,7 +62,7 @@ public sealed class CreditsController(ICreditEngine creditEngine, ILogger<Credit
         {
             tenantId,
             plan = subscription.Plan.Name,
-            creditsRemaining = subscription.Plan.IsUnlimited ? (int?)null : subscription.CreditsRemaining,
+            creditsRemaining = subscription.Plan.IsUnlimited ? (int?)null : (bypassed ? int.MaxValue : subscription.CreditsRemaining),
             isUnlimited = subscription.Plan.IsUnlimited,
             nextResetDate = subscription.NextResetDate,
         });
