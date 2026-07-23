@@ -123,7 +123,7 @@ public sealed class CreditEngine(
     {
         var creditsToConsume = _defaults.CreditsConsumedPerRequest;
         var balanceBefore = subscription.CreditsRemaining;
-        var treatAsUnlimited = subscription.Plan.IsUnlimited || _defaults.BypassCreditLimit;
+        var treatAsUnlimited = subscription.Plan.IsUnlimited || _defaults.EffectiveBypassCreditLimit;
 
         if (!treatAsUnlimited)
         {
@@ -155,7 +155,9 @@ public sealed class CreditEngine(
 
         return new CreditDeductionResult(
             CreditsConsumed: treatAsUnlimited ? 0 : creditsToConsume,
-            CreditsRemaining: treatAsUnlimited ? int.MaxValue : subscription.CreditsRemaining,
+            CreditsRemaining: subscription.Plan.IsUnlimited
+                ? int.MaxValue
+                : (treatAsUnlimited ? SubscriptionDefaults.BypassCreditsRemaining : subscription.CreditsRemaining),
             ResetDate: subscription.NextResetDate,
             PlanName: subscription.Plan.Name,
             IsUnlimited: subscription.Plan.IsUnlimited);

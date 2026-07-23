@@ -76,18 +76,20 @@ public sealed class CreditValidationMiddleware
         await creditEngine.CheckAndResetIfNeededAsync(subscription, context.RequestAborted);
 
         var wouldBlock = !subscription.Plan.IsUnlimited && subscription.CreditsRemaining <= 0;
-        var blocked = wouldBlock && !defaults.BypassCreditLimit;
+        var blocked = wouldBlock && !defaults.EffectiveBypassCreditLimit;
 
         _logger.LogInformation(
             "Credit Validation | Tenant={TenantId} Subscription={PlanName} CreditsRemaining={CreditsRemaining} " +
-            "CreditsRequired={CreditsRequired} BypassCreditLimit={BypassCreditLimit} Decision={Decision} Reason={Reason}",
+            "CreditsRequired={CreditsRequired} BypassCreditLimit={BypassCreditLimit} EffectiveBypassCreditLimit={EffectiveBypassCreditLimit} " +
+            "Decision={Decision} Reason={Reason}",
             tenantId,
             subscription.Plan.Name,
             subscription.CreditsRemaining,
             defaults.CreditsConsumedPerRequest,
             defaults.BypassCreditLimit,
+            defaults.EffectiveBypassCreditLimit,
             blocked ? "BLOCK" : "ALLOW",
-            blocked ? "Insufficient credits" : wouldBlock ? "Insufficient credits, but BypassCreditLimit is enabled" : "Credits available");
+            blocked ? "Insufficient credits" : wouldBlock ? "Insufficient credits, but bypass is enabled" : "Credits available");
 
         if (blocked)
             throw new InsufficientCreditsException(

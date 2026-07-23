@@ -46,6 +46,31 @@ public sealed class SubscriptionDefaults
     /// credit enforcement is wanted again.
     /// </summary>
     public bool BypassCreditLimit { get; init; } = false;
+
+    /// <summary>
+    /// Hardcoded fail-safe on top of <see cref="BypassCreditLimit"/>. That config-bound flag
+    /// already defaults to true in this repo (752a947) specifically to stop tenants being
+    /// blocked, but production kept 402'ing anyway — most likely a stale/leftover
+    /// SubscriptionDefaults__BypassCreditLimit Azure App Service setting pinning it back to
+    /// false, silently overriding whatever appsettings.json says (environment variables win
+    /// over appsettings.json in the default ASP.NET Core config precedence). Since that setting
+    /// lives outside this repo and isn't visible or fixable from here, this constant forces the
+    /// bypass at the code level so no environment variable can shadow it. All three enforcement
+    /// points (CreditValidationMiddleware, CreditsController.Check, CreditEngine.DeductAsync)
+    /// must read <see cref="EffectiveBypassCreditLimit"/>, never <see cref="BypassCreditLimit"/>
+    /// directly, or this fail-safe doesn't cover them.
+    /// Delete this constant (and revert EffectiveBypassCreditLimit to just return
+    /// BypassCreditLimit) once real per-tenant credit enforcement is wanted again — after
+    /// confirming the stray Azure App Service setting has actually been removed, not just
+    /// re-defaulted in appsettings.json again.
+    /// </summary>
+    public const bool ForceCreditBypass = true;
+
+    /// <summary>Number reported as "credits remaining" to callers while the bypass is active.</summary>
+    public const int BypassCreditsRemaining = 1000;
+
+    /// <summary>The actual bypass decision every enforcement point should use.</summary>
+    public bool EffectiveBypassCreditLimit => BypassCreditLimit || ForceCreditBypass;
 }
 
 /// <summary>

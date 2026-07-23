@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using StudioTechBI.AgentHostAPI.Middleware;
 using StudioTechBI.AgentHostApplication.Abstractions.Subscription;
 using StudioTechBI.AgentHostApplication.Models;
 using StudioTechBI.AgentHostDomain.Entities;
-using StudioTechBI.AgentHostDomain.Exceptions;
 using Xunit;
 
 namespace StudioTechBI.AgentHostAPI.Tests.Middleware;
@@ -54,7 +54,7 @@ public class CreditValidationMiddlewareTests
             return Task.CompletedTask;
         };
 
-        return (new CreditValidationMiddleware(next), () => nextCalled);
+        return (new CreditValidationMiddleware(next, NullLogger<CreditValidationMiddleware>.Instance), () => nextCalled);
     }
 
     private static DefaultHttpContext CreateContext(string path, string method = "POST", string? tenantIdHeader = null)
@@ -127,16 +127,23 @@ public class CreditValidationMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_InsufficientCredits_ThrowsInsufficientCreditsException()
+    public async Task InvokeAsync_InsufficientCredits_ConfigBypassOff_HardcodedFailSafeStillAllows()
     {
-        var (middleware, _) = CreateMiddleware();
+        // SubscriptionDefaults.ForceCreditBypass is a hardcoded fail-safe on top of the
+        // config-bound BypassCreditLimit flag (see SubscriptionOptions.cs) — added after a stray
+        // Azure App Service setting silently pinned BypassCreditLimit back to false in production
+        // despite appsettings.json defaulting it to true. Even with BypassCreditLimit explicitly
+        // off here, the request must still be allowed through.
+        var (middleware, nextWasCalled) = CreateMiddleware();
         var context = CreateContext("/api/blueprints/generate", tenantIdHeader: "acme-corp");
         var creditEngine = new FakeCreditEngine
         {
             SubscriptionToReturn = FakeCreditEngine.CreateSubscription(creditsRemaining: 0, isUnlimited: false)
         };
+        var defaults = Options.Create(new SubscriptionDefaults { BypassCreditLimit = false });
 
-        await Assert.ThrowsAsync<InsufficientCreditsException>(
-            () => middleware.InvokeAsync(context, creditEngine, Defaults()));
+        await middleware.InvokeAsync(context, creditEngine, defaults);
+
+        Assert.True(nextWasCalled());
     }
 }
