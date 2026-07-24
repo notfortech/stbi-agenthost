@@ -48,4 +48,31 @@ public sealed class BlueprintPersistenceService : IBlueprintPersistenceService
         _logger.LogInformation("Blueprint saved to {FilePath}", filePath);
         return filePath;
     }
+
+    public async Task<BlueprintDocument?> LoadAsync(Guid requestId, CancellationToken ct = default)
+    {
+        var folder = Path.IsPathRooted(_options.BlueprintFolder)
+            ? _options.BlueprintFolder
+            : Path.Combine(AppContext.BaseDirectory, _options.BlueprintFolder);
+
+        if (!Directory.Exists(folder))
+            return null;
+
+        // Same "scan for *_{requestId:N}.<ext>" pattern BlueprintsController.DownloadPdf already
+        // uses for the PDF sibling of this same file — the timestamp prefix isn't known here.
+        var match = Directory.EnumerateFiles(folder, $"*_{requestId:N}.json").FirstOrDefault();
+        if (match is null)
+            return null;
+
+        var json = await File.ReadAllTextAsync(match, ct);
+        try
+        {
+            return JsonSerializer.Deserialize<BlueprintDocument>(json, _writeOptions);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "Blueprint file at {FilePath} could not be parsed.", match);
+            return null;
+        }
+    }
 }

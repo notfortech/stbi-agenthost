@@ -7,6 +7,7 @@ using StudioTechBI.AgentHostApplication.Models;
 using StudioTechBI.AgentHostApplication.Models.Requests;
 using StudioTechBI.AgentHostApplication.Models.Responses;
 using StudioTechBI.AgentHostAPI.Middleware;
+using StudioTechBI.AgentHostDomain.Blueprints;
 using StudioTechBI.AgentHostDomain.Entities;
 using StudioTechBI.AgentHostDomain.Enums;
 
@@ -312,6 +313,33 @@ public sealed class BlueprintsController : ControllerBase
             title: "PDF Not Found",
             detail: $"No PDF found for request {requestId}. Either SaveBlueprints is disabled or PDF generation failed.",
             statusCode: StatusCodes.Status404NotFound);
+    }
+
+    /// <summary>
+    /// Fetch a previously generated blueprint's full structured JSON (not just its PDF) by
+    /// request ID — the integration point downstream services (e.g. koru-main's Dashboard
+    /// Template Generator) use to consume a blueprint's data_model/pages/measures directly,
+    /// rather than re-parsing the rendered PDF.
+    /// </summary>
+    /// <param name="requestId">The request ID returned by the generate endpoint.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <response code="200">The blueprint document.</response>
+    /// <response code="404">Not found — blueprint may not have been saved or the ID doesn't exist.</response>
+    [HttpGet("{requestId:guid}/json")]
+    [ProducesResponseType(typeof(BlueprintDocument), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetJson(Guid requestId, CancellationToken ct)
+    {
+        var document = await _persistence.LoadAsync(requestId, ct);
+        if (document is null)
+        {
+            return Problem(
+                title: "Blueprint Not Found",
+                detail: $"No blueprint found for request {requestId}. Either SaveBlueprints is disabled or this ID doesn't exist.",
+                statusCode: StatusCodes.Status404NotFound);
+        }
+
+        return Ok(document);
     }
 
     // ── private helpers ──────────────────────────────────────────────────────
